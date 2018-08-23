@@ -8,21 +8,21 @@ from utils import *
 
 # Data parameters
 data_folder = './'
+keep_difficult = True
 
 # Model parameters
 n_classes = len(label_map)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Training parameters
-checkpoint = None
-pretrained_base = './VGG16_ILSVRC_CLS_LOC_converted_degroot.pth.tar'
-batch_size = 32
+# Learning parameters
+checkpoint = 'BEST_checkpoint_ssd300.pth.tar'
+batch_size = 8
 start_epoch = 0
 epochs = 200
 epochs_since_improvement = 0
 best_loss = 100.
 workers = 4
-print_freq = 50
+print_freq = 200
 lr = 1e-3
 momentum = 0.9
 weight_decay = 5e-4
@@ -36,8 +36,17 @@ def main():
     if checkpoint is None:
         model = SSD300(n_classes=n_classes)
         model.init_conv2d()
-        model.load_pretrained_base(pretrained_base)
-        optimizer = torch.optim.SGD(params=filter(lambda p: p.requires_grad, model.parameters()),
+        model.load_pretrained_base()
+        # Initialize the optimizer, with twice the default learning rate for biases, as in Caffe repo
+        biases = list()
+        not_biases = list()
+        for param_name, param in model.named_parameters():
+            if param.requires_grad:
+                if param_name.endswith('.bias'):
+                    biases.append(param)
+                else:
+                    not_biases.append(param)
+        optimizer = torch.optim.SGD(params=[{'params': biases, 'lr': 2 * lr}, {'params': not_biases}],
                                     lr=lr, momentum=momentum, weight_decay=weight_decay)
 
     else:
@@ -45,6 +54,7 @@ def main():
         start_epoch = checkpoint['epoch'] + 1
         epochs_since_improvement = checkpoint['epochs_since_improvement']
         best_loss = checkpoint['best_loss']
+        print('\nLoaded checkpoint from epoch %d. Best loss so far is %.3f.\n' % (start_epoch, best_loss))
         model = checkpoint['model']
         optimizer = checkpoint['optimizer']
 
@@ -55,22 +65,18 @@ def main():
     # Custom dataloaders
     train_dataset = PascalVOCDataset(data_folder,
                                      split='train',
-                                     keep_difficult=False)
+                                     keep_difficult=keep_difficult)
     val_dataset = PascalVOCDataset(data_folder,
                                    split='test',
-                                   keep_difficult=True)
+                                   keep_difficult=keep_difficult)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
                                                collate_fn=train_dataset.collate_fn, num_workers=workers,
                                                pin_memory=True)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=True,
-                                             collate_fn=val_dataset.collate_fn, num_workers=workers, pin_memory=True)
-
+                                             collate_fn=val_dataset.collate_fn, num_workers=workers,
+                                             pin_memory=True)
+    adjust_learning_rate(optimizer, 0.1)
     for epoch in range(start_epoch, epochs):
-
-        # if epochs_since_improvement == 30:
-        #     break
-        if epoch in [154, 193, 231]:
-            adjust_learning_rate(optimizer, 0.1)
 
         train(train_loader=train_loader,
               model=model,
@@ -84,9 +90,11 @@ def main():
 
         is_best = val_loss < best_loss
         best_loss = min(val_loss, best_loss)
+
         if not is_best:
             epochs_since_improvement += 1
             print("\nEpochs since last improvement: %d\n" % (epochs_since_improvement,))
+
         else:
             epochs_since_improvement = 0
 
@@ -131,7 +139,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(epoch, i, len(train_loader),
                                                                   batch_time=batch_time,
                                                                   data_time=data_time, loss=losses))
-    del images, boxes, labels
+    del predicted_locs, predicted_scores, images, boxes, labels
 
 
 def validate(val_loader, model, criterion):
@@ -141,13 +149,6 @@ def validate(val_loader, model, criterion):
     losses = AverageMeter()
 
     start = time.time()
-
-    # det_boxes = list()
-    # det_labels = list()
-    # det_scores = list()
-    # true_boxes = list()
-    # true_labels = list()
-    # true_difficulties = list()
 
     with torch.no_grad():
         for i, (images, boxes, labels, difficulties) in enumerate(val_loader):
@@ -159,15 +160,6 @@ def validate(val_loader, model, criterion):
             labels = [l.to(device) for l in labels]
 
             loss = criterion(predicted_locs, predicted_scores, boxes, labels)
-
-            # det_boxes_batch, det_labels_batch, det_scores_batch = model.detect_objects(predicted_locs, predicted_scores)
-            #
-            # det_boxes.extend(det_boxes_batch)
-            # det_labels.extend(det_labels_batch)
-            # det_scores.extend(det_scores_batch)
-            # true_boxes.extend(boxes)
-            # true_labels.extend(labels)
-            # true_difficulties.extend(difficulties)
 
             losses.update(loss.item(), images.size(0))
             batch_time.update(time.time() - start)
@@ -181,8 +173,6 @@ def validate(val_loader, model, criterion):
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(i, len(val_loader),
                                                                       batch_time=batch_time,
                                                                       loss=losses))
-
-    # mAP = calculate_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties)
 
     print('\n * LOSS - {loss.avg:.3f}\n'.format(loss=losses))
 

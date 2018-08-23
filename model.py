@@ -3,6 +3,7 @@ from utils import *
 import torch.nn.functional as F
 from math import sqrt
 from itertools import product as product
+import torchvision
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -236,9 +237,37 @@ class SSD300(nn.Module):
                 nn.init.xavier_uniform_(c.weight)
                 nn.init.constant_(c.bias, 0.)
 
-    def load_pretrained_base(self, state_dict_file):
-        base_state_dict = torch.load(state_dict_file)
+    def load_pretrained_base(self):
+        # Current state of VGG base
+        base_state_dict = self.base.state_dict()
+        base_param_names = list(base_state_dict.keys())
+
+        # Pretrained VGG base
+        pretrained_base_state_dict = torchvision.models.vgg16(pretrained=True).state_dict()
+        pretrained_base_param_names = list(pretrained_base_state_dict.keys())
+
+        # Transfer conv. parameters from pretrained model to current model
+        for i, param in enumerate(base_param_names[:-4]):  # excluding conv6 and conv7 parameters
+            base_state_dict[param] = pretrained_base_state_dict[pretrained_base_param_names[i]]
+
+        # Convert fc6, fc7 to convolutional layers, and subsample (by decimation) to sizes of conv6 and conv7
+        # fc6
+        conv_fc6_weight = pretrained_base_state_dict['classifier.0.weight'].view(4096, 512, 7, 7)  # (4096, 512, 7, 7)
+        conv_fc6_bias = pretrained_base_state_dict['classifier.0.bias']  # (4096)
+        base_state_dict['conv6.weight'] = decimate(conv_fc6_weight, m=[4, None, 3, 3])  # (1024, 512, 3, 3)
+        base_state_dict['conv6.bias'] = decimate(conv_fc6_bias, m=[4])  # (1024)
+        # fc7
+        conv_fc7_weight = pretrained_base_state_dict['classifier.3.weight'].view(4096, 4096, 1, 1)  # (4096, 4096, 1, 1)
+        conv_fc7_bias = pretrained_base_state_dict['classifier.3.bias']  # (4096)
+        base_state_dict['conv7.weight'] = decimate(conv_fc7_weight, m=[4, 4, None, None])  # (1024, 1024, 1, 1)
+        base_state_dict['conv7.bias'] = decimate(conv_fc7_bias, m=[4])  # (1024)
+
+        # Note: an FC layer of size (K) operating on a flattened version (C*H*W) of a 2D image of size (C, H, W)...
+        # ...is equivalent to a convolutional layer with kernel size (H, W), input channels C, output channels K...
+        # ...operating on the 2D image of size (C, H, W) without padding
+
         self.base.load_state_dict(base_state_dict)
+
         print("\nLoaded base model.\n")
 
     def forward(self, image):
@@ -307,13 +336,13 @@ class SSD300(nn.Module):
                             prior_boxes.append([cx, cy, additional_scale, additional_scale])
 
         prior_boxes = torch.FloatTensor(prior_boxes).to(device)  # (8732, 4)
-
-        # Clip to a maximum fractional dimension of 1. since prior-boxes' widths and heights can't exceed fmap dimensions
+        # prior_boxes = cxcy_to_xy(prior_boxes)  # (8732, 4)
         prior_boxes.clamp_(0, 1)  # (8732, 4)
+        # prior_boxes = xy_to_cxcy(prior_boxes)  # (8732, 4)
 
         return prior_boxes
 
-    def detect_objects(self, predicted_locs, predicted_scores, min_score=0.1, max_overlap=0.5, top_k=200):
+    def detect_objects(self, predicted_locs, predicted_scores, min_score, max_overlap, top_k):
         batch_size = predicted_locs.size(0)
         n_priors = self.priors_cxcy.size(0)
         predicted_scores = F.softmax(predicted_scores, dim=2)  # (N, 8732, n_classes)
@@ -330,34 +359,47 @@ class SSD300(nn.Module):
             decoded_locs = cxcy_to_xy(
                 gcxgcy_to_cxcy(predicted_locs[i], self.priors_cxcy))  # (8732, 4), these are fractional pt. coordinates
 
-            for c in range(1, self.n_classes):
-                class_scores = predicted_scores[i][:, c]  # (8732)
+            # Lists to store boxes and scores for this image
+            image_boxes = list()
+            image_labels = list()
+            image_scores = list()
 
-                # Keep only predicted boxes and scores where scores for this class are above the minimum score
-                score_above_min_score = class_scores > min_score  # torch.uint8 (byte) tensor, for indexing
-                n_min_score = score_above_min_score.sum().item()
-                if n_min_score == 0:
-                    continue
-                class_scores = class_scores[score_above_min_score]  # (n_min_score), n_min_score <= 8732
-                class_decoded_locs = decoded_locs[score_above_min_score]  # (n_min_score, 4)
+            max_scores, best_label = predicted_scores[i].max(dim=1)  # (8732)
+
+            # Check for each class
+            for c in range(1, self.n_classes):
+
+                if min_score is None:
+                    # Keep only predicted boxes and scores where scores for this class were the maximum among all classes
+                    class_was_best = best_label == c  # torch.uint8 (byte) tensor, for indexing
+                    n_qualified = class_was_best.sum().item()
+                    if n_qualified == 0:
+                        continue
+                    class_scores = max_scores[class_was_best]  # (n_qualified), n_qualified <= 8732
+                    class_decoded_locs = decoded_locs[class_was_best]  # (n_qualified, 4)
+
+                if min_score is not None:
+                    # Keep only predicted boxes and scores where scores for this class are above the minimum score
+                    class_scores = predicted_scores[i][:, c]  # (8732)
+                    score_above_min_score = class_scores > min_score  # torch.uint8 (byte) tensor, for indexing
+                    n_qualified = score_above_min_score.sum().item()
+                    if n_qualified == 0:
+                        continue
+                    class_scores = class_scores[score_above_min_score]  # (n_qualified), n_min_score <= 8732
+                    class_decoded_locs = decoded_locs[score_above_min_score]  # (n_qualified, 4)
 
                 # Sort predicted boxes and scores by scores
-                class_scores, sort_ind = class_scores.sort(dim=0, descending=True)  # (n_min_score), (n_min_score)
+                class_scores, sort_ind = class_scores.sort(dim=0, descending=True)  # (n_qualified), (n_min_score)
                 class_decoded_locs = class_decoded_locs[sort_ind]  # (n_min_score, 4)
 
                 # Find the overlap between predicted boxes
-                overlap = find_jaccard_overlap(class_decoded_locs, class_decoded_locs)  # (n_min_score, n_min_score)
+                overlap = find_jaccard_overlap(class_decoded_locs, class_decoded_locs)  # (n_qualified, n_min_score)
 
                 # Non-Maximum Suppression (NMS)
 
-                # Lists to store boxes and scores for this image after NMS
-                image_boxes = list()
-                image_labels = list()
-                image_scores = list()
-
                 # A torch.uint8 (byte) tensor to keep track of which predicted boxes to suppress
                 # 1 implies suppress, 0 implies don't suppress
-                suppress = torch.zeros((n_min_score), dtype=torch.uint8).to(device)  # (n_min_score)
+                suppress = torch.zeros((n_qualified), dtype=torch.uint8).to(device)  # (n_qualified)
 
                 # Consider each box in order of decreasing scores
                 for box in range(class_decoded_locs.size(0)):
@@ -375,8 +417,14 @@ class SSD300(nn.Module):
 
                 # Store only unsuppressed boxes for this class
                 image_boxes.append(class_decoded_locs[1 - suppress])
-                image_labels.append(torch.LongTensor((1 - suppress).sum().item() * [c]))
+                image_labels.append(torch.LongTensor((1 - suppress).sum().item() * [c]).to(device))
                 image_scores.append(class_scores[1 - suppress])
+
+            # If no object in any class is found, store a placeholder for 'background'
+            if len(image_boxes) == 0:
+                image_boxes.append(torch.FloatTensor([[0., 0., 1., 1.]]).to(device))
+                image_labels.append(torch.LongTensor([0]).to(device))
+                image_scores.append(torch.FloatTensor([0.]).to(device))
 
             # Concatenate into single tensors
             image_boxes = torch.cat(image_boxes, dim=0)  # (n_objects, 4)
