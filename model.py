@@ -9,6 +9,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class VGGBase(nn.Module):
+    """
+    VGG base convolutions to produce lower-level feature maps.
+    """
+
     def __init__(self):
         super(VGGBase, self).__init__()
 
@@ -42,6 +46,12 @@ class VGGBase(nn.Module):
         self.conv7 = nn.Conv2d(1024, 1024, kernel_size=1)
 
     def forward(self, image):
+        """
+        Forward propagation.
+
+        :param image: images, a tensor of dimensions (N, 3, 300, 300)
+        :return: lower-level feature maps conv4_3 and conv7
+        """
         out = F.relu(self.conv1_1(image))  # (N, 64, 300, 300)
         out = F.relu(self.conv1_2(out))  # (N, 64, 300, 300)
         out = self.pool1(out)  # (N, 64, 150, 150)
@@ -75,6 +85,10 @@ class VGGBase(nn.Module):
 
 
 class AuxiliaryConvolutions(nn.Module):
+    """
+    Additional convolutions to produce higher-level feature maps.
+    """
+
     def __init__(self):
         super(AuxiliaryConvolutions, self).__init__()
 
@@ -92,6 +106,12 @@ class AuxiliaryConvolutions(nn.Module):
         self.conv11_2 = nn.Conv2d(128, 256, kernel_size=3, padding=0)  # dim. reduction because padding = 0
 
     def forward(self, conv7_feats):
+        """
+        Forward propagation.
+
+        :param conv7_feats: lower-level conv7 feature map, a tensor of dimensions (N, 1024, 19, 19)
+        :return: higher-level feature maps conv8_2, conv9_2, conv10_2, and conv11_2
+        """
         out = F.relu(self.conv8_1(conv7_feats))  # (N, 256, 19, 19)
         out = F.relu(self.conv8_2(out))  # (N, 512, 10, 10)
         conv8_2_feats = out  # (N, 512, 10, 10)
@@ -112,7 +132,20 @@ class AuxiliaryConvolutions(nn.Module):
 
 
 class PredictionConvolutions(nn.Module):
+    """
+    Convolutions to predict class scores and bounding boxes using lower and higher-level feature maps.
+
+    The bounding boxes (locations) are predicted as encoded offsets w.r.t each of the 8732 prior (default) boxes.
+    See 'cxcy_to_gcxgcy' in utils.py for the encoding definition.
+
+    The class scores represent the scores of each object class in each of the 8732 bounding boxes located.
+    A high score for 'background' = no object.
+    """
+
     def __init__(self, n_classes):
+        """
+        :param n_classes: number of different types of objects
+        """
         super(PredictionConvolutions, self).__init__()
 
         self.n_classes = n_classes
@@ -143,6 +176,17 @@ class PredictionConvolutions(nn.Module):
         self.cl_conv11_2 = nn.Conv2d(256, n_boxes['conv11_2'] * n_classes, kernel_size=3, padding=1)
 
     def forward(self, conv4_3_feats, conv7_feats, conv8_2_feats, conv9_2_feats, conv10_2_feats, conv11_2_feats):
+        """
+        Forward propagation.
+
+        :param conv4_3_feats: conv4_3 feature map, a tensor of dimensions (N, 512, 38, 38)
+        :param conv7_feats: conv7 feature map, a tensor of dimensions (N, 1024, 19, 19)
+        :param conv8_2_feats: conv8_2 feature map, a tensor of dimensions (N, 512, 10, 10)
+        :param conv9_2_feats: conv9_2 feature map, a tensor of dimensions (N, 256, 5, 5)
+        :param conv10_2_feats: conv10_2 feature map, a tensor of dimensions (N, 256, 3, 3)
+        :param conv11_2_feats: conv11_2 feature map, a tensor of dimensions (N, 256, 1, 1)
+        :return: 8732 locations and class scores (i.e. w.r.t each prior box) for each image
+        """
         batch_size = conv4_3_feats.size(0)
 
         # Predict localization boxes' bounds (as offsets w.r.t prior-boxes)
@@ -210,6 +254,10 @@ class PredictionConvolutions(nn.Module):
 
 
 class SSD300(nn.Module):
+    """
+    The SSD300 network - encapsulates the base VGG network, auxiliary, and prediction convolutions.
+    """
+
     def __init__(self, n_classes):
         super(SSD300, self).__init__()
 
@@ -228,6 +276,11 @@ class SSD300(nn.Module):
         self.priors_cxcy = self.create_prior_boxes()
 
     def init_conv2d(self):
+        """
+        Initialize convolution parameters.
+
+        Note that we only do this for the auxiliary and prediction convolutions. The VGG base is a pre-trained model.
+        """
         for c in self.aux_convs.children():
             if isinstance(c, nn.Conv2d):
                 nn.init.xavier_uniform_(c.weight)
@@ -238,6 +291,13 @@ class SSD300(nn.Module):
                 nn.init.constant_(c.bias, 0.)
 
     def load_pretrained_base(self):
+        """
+        As in the paper, we use a VGG-16 pretrained on the ImageNet task as the base network.
+        There's one available in PyTorch, see https://pytorch.org/docs/stable/torchvision/models.html#torchvision.models.vgg16
+        We copy these parameters into our network. It's straightforward for conv1 to conv5.
+        However, the original VGG-16 does not contain the conv6 and con7 layers.
+        Therefore, we convert fc6 and fc7 into convolutional layers, and subsample by decimation. See 'decimate' in utils.py.
+        """
         # Current state of VGG base
         base_state_dict = self.base.state_dict()
         base_param_names = list(base_state_dict.keys())
@@ -271,6 +331,12 @@ class SSD300(nn.Module):
         print("\nLoaded base model.\n")
 
     def forward(self, image):
+        """
+        Forward propagation.
+
+        :param image: images, a tensor of dimensions (N, 3, 300, 300)
+        :return: 8732 locations and class scores (i.e. w.r.t each prior box) for each image
+        """
         # Run VGG base network convolutions (lower level feature map generators)
         conv4_3_feats, conv7_feats = self.base(image)  # (N, 512, 38, 38), (N, 1024, 19, 19)
 
@@ -291,6 +357,11 @@ class SSD300(nn.Module):
         return locs, classes_scores
 
     def create_prior_boxes(self):
+        """
+        Create the 8732 prior (default) boxes for the SSD300, as defined in the paper.
+
+        :return: prior boxes in center-size coordinates, a tensor of dimensions (8732, 4)
+        """
         fmap_dims = {'conv4_3': 38,
                      'conv7': 19,
                      'conv8_2': 10,
@@ -336,13 +407,23 @@ class SSD300(nn.Module):
                             prior_boxes.append([cx, cy, additional_scale, additional_scale])
 
         prior_boxes = torch.FloatTensor(prior_boxes).to(device)  # (8732, 4)
-        # prior_boxes = cxcy_to_xy(prior_boxes)  # (8732, 4)
         prior_boxes.clamp_(0, 1)  # (8732, 4)
-        # prior_boxes = xy_to_cxcy(prior_boxes)  # (8732, 4)
 
         return prior_boxes
 
     def detect_objects(self, predicted_locs, predicted_scores, min_score, max_overlap, top_k):
+        """
+        Decipher the 8732 locations and class scores (output of ths SSD300) to detect objects.
+
+        For each class, perform Non-Maximum Suppression (NMS) on boxes that are above a minimum threshold.
+
+        :param predicted_locs: predicted locations/boxes w.r.t the 8732 prior boxes, a tensor of dimensions (N, 8732, 4)
+        :param predicted_scores: class scores for each of the encoded locations/boxes, a tensor of dimensions (N, 8732, n_classes)
+        :param min_score: minimum threshold for a box to be considered a match for a certain class
+        :param max_overlap: maximum overlap two boxes can have so that the one with the lower score is not suppressed via NMS
+        :param top_k: if there are a lot of resulting detection across all classes, keep only the top 'k'
+        :return: detections (boxes, labels, and scores), lists of length batch_size
+        """
         batch_size = predicted_locs.size(0)
         n_priors = self.priors_cxcy.size(0)
         predicted_scores = F.softmax(predicted_scores, dim=2)  # (N, 8732, n_classes)
@@ -368,25 +449,14 @@ class SSD300(nn.Module):
 
             # Check for each class
             for c in range(1, self.n_classes):
-
-                if min_score is None:
-                    # Keep only predicted boxes and scores where scores for this class were the maximum among all classes
-                    class_was_best = best_label == c  # torch.uint8 (byte) tensor, for indexing
-                    n_qualified = class_was_best.sum().item()
-                    if n_qualified == 0:
-                        continue
-                    class_scores = max_scores[class_was_best]  # (n_qualified), n_qualified <= 8732
-                    class_decoded_locs = decoded_locs[class_was_best]  # (n_qualified, 4)
-
-                if min_score is not None:
-                    # Keep only predicted boxes and scores where scores for this class are above the minimum score
-                    class_scores = predicted_scores[i][:, c]  # (8732)
-                    score_above_min_score = class_scores > min_score  # torch.uint8 (byte) tensor, for indexing
-                    n_qualified = score_above_min_score.sum().item()
-                    if n_qualified == 0:
-                        continue
-                    class_scores = class_scores[score_above_min_score]  # (n_qualified), n_min_score <= 8732
-                    class_decoded_locs = decoded_locs[score_above_min_score]  # (n_qualified, 4)
+                # Keep only predicted boxes and scores where scores for this class are above the minimum score
+                class_scores = predicted_scores[i][:, c]  # (8732)
+                score_above_min_score = class_scores > min_score  # torch.uint8 (byte) tensor, for indexing
+                n_above_min_score = score_above_min_score.sum().item()
+                if n_above_min_score == 0:
+                    continue
+                class_scores = class_scores[score_above_min_score]  # (n_qualified), n_min_score <= 8732
+                class_decoded_locs = decoded_locs[score_above_min_score]  # (n_qualified, 4)
 
                 # Sort predicted boxes and scores by scores
                 class_scores, sort_ind = class_scores.sort(dim=0, descending=True)  # (n_qualified), (n_min_score)
@@ -399,7 +469,7 @@ class SSD300(nn.Module):
 
                 # A torch.uint8 (byte) tensor to keep track of which predicted boxes to suppress
                 # 1 implies suppress, 0 implies don't suppress
-                suppress = torch.zeros((n_qualified), dtype=torch.uint8).to(device)  # (n_qualified)
+                suppress = torch.zeros((n_above_min_score), dtype=torch.uint8).to(device)  # (n_qualified)
 
                 # Consider each box in order of decreasing scores
                 for box in range(class_decoded_locs.size(0)):
@@ -448,6 +518,14 @@ class SSD300(nn.Module):
 
 
 class MultiBoxLoss(nn.Module):
+    """
+    The MultiBox loss, a loss function for object detection.
+
+    This is a combination of:
+    (1) a localization loss for the predicted locations of the boxes, and
+    (2) a confidence loss for the predicted class scores.
+    """
+
     def __init__(self, priors_cxcy, threshold=0.5, neg_pos_ratio=3, alpha=1.):
         super(MultiBoxLoss, self).__init__()
         self.priors_cxcy = priors_cxcy
@@ -460,6 +538,15 @@ class MultiBoxLoss(nn.Module):
         self.cross_entropy = nn.CrossEntropyLoss(reduce=False)
 
     def forward(self, predicted_locs, predicted_scores, boxes, labels):
+        """
+        Forward propagation.
+
+        :param predicted_locs: predicted locations/boxes w.r.t the 8732 prior boxes, a tensor of dimensions (N, 8732, 4)
+        :param predicted_scores: class scores for each of the encoded locations/boxes, a tensor of dimensions (N, 8732, n_classes)
+        :param boxes: true object bounding boxes in boundary coordinates, a list of N tensors
+        :param labels: true object labels, a list of N tensors
+        :return: multibox loss, a scalar
+        """
         batch_size = predicted_locs.size(0)
         n_priors = self.priors_cxcy.size(0)
         n_classes = predicted_scores.size(2)
@@ -548,261 +635,3 @@ class MultiBoxLoss(nn.Module):
         # TOTAL LOSS
 
         return conf_loss + self.alpha * loc_loss
-
-
-class MultiBoxLoss2(nn.Module):
-    """SSD Weighted Loss Function
-    Compute Targets:
-        1) Produce Confidence Target Indices by matching  ground truth boxes
-           with (default) 'priorboxes' that have jaccard index > threshold parameter
-           (default threshold: 0.5).
-        2) Produce localization target by 'encoding' variance into offsets of ground
-           truth boxes and their matched  'priorboxes'.
-        3) Hard negative mining to filter the excessive number of negative examples
-           that comes with using a large number of default bounding boxes.
-           (default negative:positive ratio 3:1)
-    Objective Loss:
-        L(x,c,l,g) = (Lconf(x, c) + αLloc(x,l,g)) / N
-        Where, Lconf is the CrossEntropy Loss and Lloc is the SmoothL1 Loss
-        weighted by α which is set to 1 by cross val.
-        Args:
-            c: class confidences,
-            l: predicted boxes,
-            g: ground truth boxes
-            N: number of matched default boxes
-        See: https://arxiv.org/pdf/1512.02325.pdf for more details.
-    """
-
-    def __init__(self, priors, num_classes, overlap_thresh, prior_for_matching,
-                 bkg_label, neg_mining, neg_pos, neg_overlap, encode_target,
-                 use_gpu=True):
-        super(MultiBoxLoss2, self).__init__()
-        self.priors = priors
-        self.use_gpu = use_gpu
-        self.num_classes = num_classes
-        self.threshold = overlap_thresh
-        self.background_label = bkg_label
-        self.encode_target = encode_target
-        self.use_prior_for_matching = prior_for_matching
-        self.do_neg_mining = neg_mining
-        self.negpos_ratio = neg_pos
-        self.neg_overlap = neg_overlap
-        self.variance = [0.1, 0.2]
-
-    def forward(self, loc_data, conf_data, boxeslist, labelslist):
-        """Multibox Loss
-        Args:
-            predictions (tuple): A tuple containing loc preds, conf preds,
-            and prior boxes from SSD net.
-                conf shape: torch.size(batch_size,num_priors,num_classes)
-                loc shape: torch.size(batch_size,num_priors,4)
-                priors shape: torch.size(num_priors,4)
-            targets (tensor): Ground truth boxes and labels for a batch,
-                shape: [batch_size,num_objs,5] (last idx is the label).
-        """
-        num = loc_data.size(0)
-        priors = self.priors[:loc_data.size(1), :]
-        num_priors = (priors.size(0))
-        num_classes = self.num_classes
-
-        # match priors (default boxes) and ground truth boxes
-        loc_t = torch.Tensor(num, num_priors, 4).to(device)
-        conf_t = torch.LongTensor(num, num_priors).to(device)
-        for idx in range(num):
-            truths = boxeslist[idx]
-            labels = labelslist[idx]
-            defaults = priors
-            match(self.threshold, truths, defaults, self.variance, labels,
-                  loc_t, conf_t, idx)
-        # wrap targets
-        loc_t.requires_grad = False  # (N, 8732, 4)
-        conf_t.requires_grad = False  # (N, 8732)
-
-        pos = conf_t > 0  # (N, 8732)
-        num_pos = pos.sum(dim=1, keepdim=True)
-
-        # Localization Loss (Smooth L1)
-        # Shape: [batch,num_priors,4]
-        pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_data)  # (N, 8732, 4)
-        loc_p = loc_data[pos_idx].view(-1, 4)
-        loc_t = loc_t[pos_idx].view(-1, 4)
-        loss_l = F.smooth_l1_loss(loc_p, loc_t, size_average=False)
-
-        # Compute max conf across batch for hard negative mining
-        batch_conf = conf_data.view(-1, self.num_classes)  # (N * 8732, 21)
-        a1 = log_sum_exp(batch_conf)  # (N * 8732, 1)
-        b1 = batch_conf.gather(1, conf_t.view(-1, 1))  # (N * 8732, 1)
-        loss_c = a1 - b1  # (N * 8732, 1)
-
-        # Hard Negative Mining
-        loss_c[pos.view(-1, 1)] = 0.  # filter out pos boxes for now
-
-        loss_c = loss_c.view(num, -1)  # (N, 8732), positive boxes have 0 loss
-
-        _, loss_idx = loss_c.sort(1, descending=True)
-        _, idx_rank = loss_idx.sort(1)  # (N, 8732), ranks of boxes in original order
-        num_pos = pos.long().sum(1, keepdim=True)  # (N, 1), number of positive boxes per image
-        num_neg = torch.clamp(self.negpos_ratio * num_pos, max=pos.size(1) - 1)  # (N, 1), clamped at 8731 (max. index)
-        neg = idx_rank < num_neg.expand_as(idx_rank)
-
-        # Confidence Loss Including Positive and Negative Examples
-        pos_idx = pos.unsqueeze(2).expand_as(conf_data)
-        neg_idx = neg.unsqueeze(2).expand_as(conf_data)
-        conf_p = conf_data[(pos_idx + neg_idx).gt(0)].view(-1, self.num_classes)
-        targets_weighted = conf_t[(pos + neg).gt(0)]
-        loss_c = F.cross_entropy(conf_p, targets_weighted, size_average=False)
-
-        # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + αLloc(x,l,g)) / N
-
-        N = num_pos.data.sum().double()
-        loss_l = loss_l.double()
-        loss_c = loss_c.double()
-        loss_l /= N
-        loss_c /= N
-        return loss_l + loss_c
-
-
-def match(threshold, truths, priors, variances, labels, loc_t, conf_t, idx):
-    """Match each prior box with the ground truth box of the highest jaccard
-    overlap, encode the bounding boxes, then return the matched indices
-    corresponding to both confidence and location preds.
-    Args:
-        threshold: (float) The overlap threshold used when mathing boxes.
-        truths: (tensor) Ground truth boxes, Shape: [num_obj, num_priors].
-        priors: (tensor) Prior boxes from priorbox layers, Shape: [n_priors,4].
-        variances: (tensor) Variances corresponding to each prior coord,
-            Shape: [num_priors, 4].
-        labels: (tensor) All the class labels for the image, Shape: [num_obj].
-        loc_t: (tensor) Tensor to be filled w/ endcoded location targets.
-        conf_t: (tensor) Tensor to be filled w/ matched indices for conf preds.
-        idx: (int) current batch index
-    Return:
-        The matched indices corresponding to 1)location and 2)confidence preds.
-    """
-    # jaccard index
-    overlaps = find_jaccard_overlap(
-        truths,
-        cxcy_to_xy(priors)
-    )
-    # (Bipartite Matching)
-    # [1,num_objects] best prior for each ground truth
-    best_prior_overlap, best_prior_idx = overlaps.max(1, keepdim=True)
-    # [1,num_priors] best ground truth for each prior
-    best_truth_overlap, best_truth_idx = overlaps.max(0, keepdim=True)
-    best_truth_idx.squeeze_(0)
-    best_truth_overlap.squeeze_(0)
-    best_prior_idx.squeeze_(1)
-    best_prior_overlap.squeeze_(1)
-    best_truth_overlap.index_fill_(0, best_prior_idx, 2)  # ensure best prior
-    # TODO refactor: index  best_prior_idx with long tensor
-    # ensure every gt matches with its prior of max overlap
-    for j in range(best_prior_idx.size(0)):
-        best_truth_idx[best_prior_idx[j]] = j
-    matches = truths[best_truth_idx]  # Shape: [num_priors,4]
-    conf = labels[best_truth_idx]  # Shape: [num_priors]
-    conf[best_truth_overlap < threshold] = 0  # label as background
-    loc = encode(matches, priors, variances)
-    loc_t[idx] = loc  # [num_priors,4] encoded offsets to learn
-    conf_t[idx] = conf  # [num_priors] top class label for each prior
-
-
-def encode(matched, priors, variances):
-    """Encode the variances from the priorbox layers into the ground truth boxes
-    we have matched (based on jaccard overlap) with the prior boxes.
-    Args:
-        matched: (tensor) Coords of ground truth for each prior in point-form
-            Shape: [num_priors, 4].
-        priors: (tensor) Prior boxes in center-offset form
-            Shape: [num_priors,4].
-        variances: (list[float]) Variances of priorboxes
-    Return:
-        encoded boxes (tensor), Shape: [num_priors, 4]
-    """
-
-    # dist b/t match center and prior's center
-    g_cxcy = (matched[:, :2] + matched[:, 2:]) / 2 - priors[:, :2]
-    # encode variance
-    g_cxcy /= (variances[0] * priors[:, 2:])
-    # match wh / prior wh
-    g_wh = (matched[:, 2:] - matched[:, :2]) / priors[:, 2:]
-    g_wh = torch.log(g_wh) / variances[1]
-    # return target for smooth_l1_loss
-    return torch.cat([g_cxcy, g_wh], 1)  # [num_priors,4]
-
-
-def log_sum_exp(x):
-    """Utility function for computing log_sum_exp while determining
-    This will be used to determine unaveraged confidence loss across
-    all examples in a batch.
-    Args:
-        x (Variable(tensor)): conf_preds from conf layers
-    """
-    x_max = x.data.max()
-    return torch.log(torch.sum(torch.exp(x - x_max), 1, keepdim=True)) + x_max
-
-
-class PriorBox(object):
-    """Compute priorbox coordinates in center-offset form for each source
-    feature map.
-    """
-
-    def __init__(self):
-        super(PriorBox, self).__init__()
-        cfg = {
-            'num_classes': 21,
-            'lr_steps': (80000, 100000, 120000),
-            'max_iter': 120000,
-            'feature_maps': [38, 19, 10, 5, 3, 1],
-            'min_dim': 300,
-            'steps': [8, 16, 32, 64, 100, 300],
-            'min_sizes': [30, 60, 111, 162, 213, 264],
-            'max_sizes': [60, 111, 162, 213, 264, 315],
-            'aspect_ratios': [[2], [2, 3], [2, 3], [2, 3], [2], [2]],
-            'variance': [0.1, 0.2],
-            'clip': True,
-            'name': 'VOC',
-        }
-
-        self.image_size = cfg['min_dim']
-        # number of priors for feature map location (either 4 or 6)
-        self.num_priors = len(cfg['aspect_ratios'])
-        self.variance = cfg['variance'] or [0.1]
-        self.feature_maps = cfg['feature_maps']
-        self.min_sizes = cfg['min_sizes']
-        self.max_sizes = cfg['max_sizes']
-        self.steps = cfg['steps']
-        self.aspect_ratios = cfg['aspect_ratios']
-        self.clip = cfg['clip']
-        self.version = cfg['name']
-        for v in self.variance:
-            if v <= 0:
-                raise ValueError('Variances must be greater than 0')
-
-    def forward(self):
-        mean = []
-        for k, f in enumerate(self.feature_maps):
-            for i, j in product(range(f), repeat=2):
-                f_k = self.image_size / self.steps[k]
-                # unit center x,y
-                cx = (j + 0.5) / f_k
-                cy = (i + 0.5) / f_k
-
-                # aspect_ratio: 1
-                # rel size: min_size
-                s_k = self.min_sizes[k] / self.image_size
-                mean += [cx, cy, s_k, s_k]
-
-                # aspect_ratio: 1
-                # rel size: sqrt(s_k * s_(k+1))
-                s_k_prime = sqrt(s_k * (self.max_sizes[k] / self.image_size))
-                mean += [cx, cy, s_k_prime, s_k_prime]
-
-                # rest of aspect ratios
-                for ar in self.aspect_ratios[k]:
-                    mean += [cx, cy, s_k * sqrt(ar), s_k / sqrt(ar)]
-                    mean += [cx, cy, s_k / sqrt(ar), s_k * sqrt(ar)]
-        # back to torch land
-        output = torch.Tensor(mean).view(-1, 4)
-        if self.clip:
-            output.clamp_(max=1, min=0)
-        return output
