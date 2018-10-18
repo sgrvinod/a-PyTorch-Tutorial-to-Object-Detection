@@ -36,7 +36,7 @@ I'm using `PyTorch 0.4` in `Python 3.6`.
 
  We will be implementing the [Single Shot Multibox Detector (SSD)](https://arxiv.org/abs/1512.02325), a popular, powerful, and especially nimble network for this task. The authors' original implementation can be found [here](https://github.com/weiliu89/caffe/tree/ssd).
 
-Here are some examples for images not seen during training:
+Here are some examples of images not seen during training:
 
 ---
 
