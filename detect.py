@@ -79,9 +79,9 @@ def detect(original_image, min_score, max_overlap, top_k, suppress=None):
         draw.rectangle(xy=[l + 1. for l in box_location], outline=label_color_map[
             det_labels[i]])  # a second rectangle at an offset of 1 pixel to increase line thickness
         # draw.rectangle(xy=[l + 2. for l in box_location], outline=label_color_map[
-        #     det_labels[i]])  # a second rectangle at an offset of 1 pixel to increase line thickness
+        #     det_labels[i]])  # a third rectangle at an offset of 1 pixel to increase line thickness
         # draw.rectangle(xy=[l + 3. for l in box_location], outline=label_color_map[
-        #     det_labels[i]])  # a second rectangle at an offset of 1 pixel to increase line thickness
+        #     det_labels[i]])  # a fourth rectangle at an offset of 1 pixel to increase line thickness
 
         # Text
         text_size = font.getsize(det_labels[i].upper())
