@@ -36,7 +36,7 @@ I'm using `PyTorch 0.4` in `Python 3.6`.
 
  We will be implementing the [Single Shot Multibox Detector (SSD)](https://arxiv.org/abs/1512.02325), a popular, powerful, and especially nimble network for this task. The authors' original implementation can be found [here](https://github.com/weiliu89/caffe/tree/ssd).
 
-Here are some more examples not seen during training:
+Here are a few examples of images not seen during training:
 
 ---
 
@@ -102,6 +102,6 @@ I am still writing this tutorial.
 <img src="./img/incomplete.jpg">
 </p>
 
-In the meantime, you could **take a look at the code** – it works!
+In the meantime, you could take a look at the code – it works!
 
 We achieve an mAP of **77.1** (against **77.2** in the paper) on VOC2007-test.
