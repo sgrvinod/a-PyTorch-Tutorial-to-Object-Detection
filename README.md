@@ -36,7 +36,7 @@ I'm using `PyTorch 0.4` in `Python 3.6`.
 
  We will be implementing the [Single Shot Multibox Detector (SSD)](https://arxiv.org/abs/1512.02325), a popular, powerful, and especially nimble network for this task. The authors' original implementation can be found [here](https://github.com/weiliu89/caffe/tree/ssd).
 
-Here are a few examples of images not seen during training:
+Here are a few examples of object detection in images not seen during training:
 
 ---
 
@@ -87,10 +87,6 @@ Here are a few examples of images not seen during training:
 </p>
 
 ---
-
-<p align="center">
-<img src="./img/airport.gif">
-</p>
 
 There will be more examples at the [end of the tutorial](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#tutorial-in-progress).
 
