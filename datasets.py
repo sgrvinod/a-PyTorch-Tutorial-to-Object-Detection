@@ -82,4 +82,4 @@ class PascalVOCDataset(Dataset):
 
         images = torch.stack(images, dim=0)
 
-        return images, boxes, labels, difficulties  # tensor (N, ...), 3 lists of N tensors each
+        return images, boxes, labels, difficulties  # tensor (N, 3, 300, 300), 3 lists of N tensors each

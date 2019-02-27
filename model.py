@@ -45,6 +45,9 @@ class VGGBase(nn.Module):
 
         self.conv7 = nn.Conv2d(1024, 1024, kernel_size=1)
 
+        # Load pretrained layers
+        self.load_pretrained_layers()
+
     def forward(self, image):
         """
         Forward propagation.
@@ -83,6 +86,46 @@ class VGGBase(nn.Module):
         # Lower-level feature maps
         return conv4_3_feats, conv7_feats
 
+    def load_pretrained_layers(self):
+        """
+        As in the paper, we use a VGG-16 pretrained on the ImageNet task as the base network.
+        There's one available in PyTorch, see https://pytorch.org/docs/stable/torchvision/models.html#torchvision.models.vgg16
+        We copy these parameters into our network. It's straightforward for conv1 to conv5.
+        However, the original VGG-16 does not contain the conv6 and con7 layers.
+        Therefore, we convert fc6 and fc7 into convolutional layers, and subsample by decimation. See 'decimate' in utils.py.
+        """
+        # Current state of base
+        state_dict = self.state_dict()
+        param_names = list(state_dict.keys())
+
+        # Pretrained VGG base
+        pretrained_state_dict = torchvision.models.vgg16(pretrained=True).state_dict()
+        pretrained_param_names = list(pretrained_state_dict.keys())
+
+        # Transfer conv. parameters from pretrained model to current model
+        for i, param in enumerate(param_names[:-4]):  # excluding conv6 and conv7 parameters
+            state_dict[param] = pretrained_state_dict[pretrained_param_names[i]]
+
+        # Convert fc6, fc7 to convolutional layers, and subsample (by decimation) to sizes of conv6 and conv7
+        # fc6
+        conv_fc6_weight = pretrained_state_dict['classifier.0.weight'].view(4096, 512, 7, 7)  # (4096, 512, 7, 7)
+        conv_fc6_bias = pretrained_state_dict['classifier.0.bias']  # (4096)
+        state_dict['conv6.weight'] = decimate(conv_fc6_weight, m=[4, None, 3, 3])  # (1024, 512, 3, 3)
+        state_dict['conv6.bias'] = decimate(conv_fc6_bias, m=[4])  # (1024)
+        # fc7
+        conv_fc7_weight = pretrained_state_dict['classifier.3.weight'].view(4096, 4096, 1, 1)  # (4096, 4096, 1, 1)
+        conv_fc7_bias = pretrained_state_dict['classifier.3.bias']  # (4096)
+        state_dict['conv7.weight'] = decimate(conv_fc7_weight, m=[4, 4, None, None])  # (1024, 1024, 1, 1)
+        state_dict['conv7.bias'] = decimate(conv_fc7_bias, m=[4])  # (1024)
+
+        # Note: an FC layer of size (K) operating on a flattened version (C*H*W) of a 2D image of size (C, H, W)...
+        # ...is equivalent to a convolutional layer with kernel size (H, W), input channels C, output channels K...
+        # ...operating on the 2D image of size (C, H, W) without padding
+
+        self.load_state_dict(state_dict)
+
+        print("\nLoaded base model.\n")
+
 
 class AuxiliaryConvolutions(nn.Module):
     """
@@ -104,6 +147,18 @@ class AuxiliaryConvolutions(nn.Module):
 
         self.conv11_1 = nn.Conv2d(256, 128, kernel_size=1, padding=0)
         self.conv11_2 = nn.Conv2d(128, 256, kernel_size=3, padding=0)  # dim. reduction because padding = 0
+
+        # Initialize convolutions' parameters
+        self.init_conv2d()
+
+    def init_conv2d(self):
+        """
+        Initialize convolution parameters.
+        """
+        for c in self.children():
+            if isinstance(c, nn.Conv2d):
+                nn.init.xavier_uniform_(c.weight)
+                nn.init.constant_(c.bias, 0.)
 
     def forward(self, conv7_feats):
         """
@@ -174,6 +229,18 @@ class PredictionConvolutions(nn.Module):
         self.cl_conv9_2 = nn.Conv2d(256, n_boxes['conv9_2'] * n_classes, kernel_size=3, padding=1)
         self.cl_conv10_2 = nn.Conv2d(256, n_boxes['conv10_2'] * n_classes, kernel_size=3, padding=1)
         self.cl_conv11_2 = nn.Conv2d(256, n_boxes['conv11_2'] * n_classes, kernel_size=3, padding=1)
+
+        # Initialize convolutions' parameters
+        self.init_conv2d()
+
+    def init_conv2d(self):
+        """
+        Initialize convolution parameters.
+        """
+        for c in self.children():
+            if isinstance(c, nn.Conv2d):
+                nn.init.xavier_uniform_(c.weight)
+                nn.init.constant_(c.bias, 0.)
 
     def forward(self, conv4_3_feats, conv7_feats, conv8_2_feats, conv9_2_feats, conv10_2_feats, conv11_2_feats):
         """
@@ -274,61 +341,6 @@ class SSD300(nn.Module):
 
         # Prior boxes
         self.priors_cxcy = self.create_prior_boxes()
-
-    def init_conv2d(self):
-        """
-        Initialize convolution parameters.
-
-        Note that we only do this for the auxiliary and prediction convolutions. The VGG base is a pre-trained model.
-        """
-        for c in self.aux_convs.children():
-            if isinstance(c, nn.Conv2d):
-                nn.init.xavier_uniform_(c.weight)
-                nn.init.constant_(c.bias, 0.)
-        for c in self.pred_convs.children():
-            if isinstance(c, nn.Conv2d):
-                nn.init.xavier_uniform_(c.weight)
-                nn.init.constant_(c.bias, 0.)
-
-    def load_pretrained_base(self):
-        """
-        As in the paper, we use a VGG-16 pretrained on the ImageNet task as the base network.
-        There's one available in PyTorch, see https://pytorch.org/docs/stable/torchvision/models.html#torchvision.models.vgg16
-        We copy these parameters into our network. It's straightforward for conv1 to conv5.
-        However, the original VGG-16 does not contain the conv6 and con7 layers.
-        Therefore, we convert fc6 and fc7 into convolutional layers, and subsample by decimation. See 'decimate' in utils.py.
-        """
-        # Current state of VGG base
-        base_state_dict = self.base.state_dict()
-        base_param_names = list(base_state_dict.keys())
-
-        # Pretrained VGG base
-        pretrained_base_state_dict = torchvision.models.vgg16(pretrained=True).state_dict()
-        pretrained_base_param_names = list(pretrained_base_state_dict.keys())
-
-        # Transfer conv. parameters from pretrained model to current model
-        for i, param in enumerate(base_param_names[:-4]):  # excluding conv6 and conv7 parameters
-            base_state_dict[param] = pretrained_base_state_dict[pretrained_base_param_names[i]]
-
-        # Convert fc6, fc7 to convolutional layers, and subsample (by decimation) to sizes of conv6 and conv7
-        # fc6
-        conv_fc6_weight = pretrained_base_state_dict['classifier.0.weight'].view(4096, 512, 7, 7)  # (4096, 512, 7, 7)
-        conv_fc6_bias = pretrained_base_state_dict['classifier.0.bias']  # (4096)
-        base_state_dict['conv6.weight'] = decimate(conv_fc6_weight, m=[4, None, 3, 3])  # (1024, 512, 3, 3)
-        base_state_dict['conv6.bias'] = decimate(conv_fc6_bias, m=[4])  # (1024)
-        # fc7
-        conv_fc7_weight = pretrained_base_state_dict['classifier.3.weight'].view(4096, 4096, 1, 1)  # (4096, 4096, 1, 1)
-        conv_fc7_bias = pretrained_base_state_dict['classifier.3.bias']  # (4096)
-        base_state_dict['conv7.weight'] = decimate(conv_fc7_weight, m=[4, 4, None, None])  # (1024, 1024, 1, 1)
-        base_state_dict['conv7.bias'] = decimate(conv_fc7_bias, m=[4])  # (1024)
-
-        # Note: an FC layer of size (K) operating on a flattened version (C*H*W) of a 2D image of size (C, H, W)...
-        # ...is equivalent to a convolutional layer with kernel size (H, W), input channels C, output channels K...
-        # ...operating on the 2D image of size (C, H, W) without padding
-
-        self.base.load_state_dict(base_state_dict)
-
-        print("\nLoaded base model.\n")
 
     def forward(self, image):
         """
@@ -543,7 +555,7 @@ class MultiBoxLoss(nn.Module):
 
         :param predicted_locs: predicted locations/boxes w.r.t the 8732 prior boxes, a tensor of dimensions (N, 8732, 4)
         :param predicted_scores: class scores for each of the encoded locations/boxes, a tensor of dimensions (N, 8732, n_classes)
-        :param boxes: true object bounding boxes in boundary coordinates, a list of N tensors
+        :param boxes: true  object bounding boxes in boundary coordinates, a list of N tensors
         :param labels: true object labels, a list of N tensors
         :return: multibox loss, a scalar
         """
@@ -580,9 +592,6 @@ class MultiBoxLoss(nn.Module):
             # To ensure these priors qualify, artificially give them an overlap of greater than 0.5. (This fixes 2.)
             overlap_for_each_prior[prior_for_each_object] = 1.
 
-            # Encode center-size object coordinates into the form we regressed predicted boxes to
-            true_locs[i] = cxcy_to_gcxgcy(xy_to_cxcy(boxes[i][object_for_each_prior]), self.priors_cxcy)  # (8732, 4)
-
             # Labels for each prior
             label_for_each_prior = labels[i][object_for_each_prior]  # (8732)
             # Set priors whose overlaps with objects are less than the threshold to be background (no object)
@@ -590,6 +599,9 @@ class MultiBoxLoss(nn.Module):
 
             # Store
             true_classes[i] = label_for_each_prior
+
+            # Encode center-size object coordinates into the form we regressed predicted boxes to
+            true_locs[i] = cxcy_to_gcxgcy(xy_to_cxcy(boxes[i][object_for_each_prior]), self.priors_cxcy)  # (8732, 4)
 
         # Identify priors that are positive (object/non-background)
         positive_priors = true_classes != 0  # (N, 8732)

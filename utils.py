@@ -626,7 +626,7 @@ def transform(image, boxes, labels, difficulties, split):
         if random.random() < 0.5:
             new_image, new_boxes = flip(new_image, new_boxes)
 
-    # Resize image to (300, 300) - this also converts point coordinates to fractional form
+    # Resize image to (300, 300) - this also converts absolute boundary coordinates to their fractional form
     new_image, new_boxes = resize(new_image, new_boxes, dims=(300, 300))
 
     # Convert PIL image to Torch tensor
@@ -647,7 +647,7 @@ def adjust_learning_rate(optimizer, scale):
     """
     for param_group in optimizer.param_groups:
         param_group['lr'] = param_group['lr'] * scale
-    print("DECAYING learning rate.\n The new LR is %f\n" % (optimizer.param_groups[0]['lr'],))
+    print("DECAYING learning rate.\n The new LR is %f\n" % (optimizer.param_groups[1]['lr'],))
 
 
 def accuracy(scores, targets, k):

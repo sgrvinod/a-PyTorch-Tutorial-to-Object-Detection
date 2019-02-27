@@ -11,12 +11,12 @@ data_folder = './'  # folder with data files
 keep_difficult = True  # use objects considered difficult to detect?
 
 # Model parameters
-# Not too many here since the SSD300 has a specific structure
+# Not too many here since the SSD300 has a very specific structure
 n_classes = len(label_map)  # number of different types of objects
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Learning parameters
-checkpoint = 'BEST_checkpoint_ssd300.pth.tar'  # path to model checkpoint, None if none
+checkpoint = None  # path to model checkpoint, None if none
 batch_size = 8  # batch size
 start_epoch = 0  # start at this epoch
 epochs = 200  # number of epochs to run without early-stopping
@@ -27,7 +27,7 @@ print_freq = 200  # print training or validation status every __ batches
 lr = 1e-3  # learning rate
 momentum = 0.9  # momentum
 weight_decay = 5e-4  # weight decay
-grad_clip = None  # Use a value of 0.5 if gradients are exploding, which may happen at larger batch sizes (sometimes at 32) - you will recognize it by a sorting error in the MuliBox loss calculation
+grad_clip = None  # clip if gradients are exploding, which may happen at larger batch sizes (sometimes at 32) - you will recognize it by a sorting error in the MuliBox loss calculation
 
 cudnn.benchmark = True
 
@@ -41,8 +41,6 @@ def main():
     # Initialize model or load checkpoint
     if checkpoint is None:
         model = SSD300(n_classes=n_classes)
-        model.init_conv2d()
-        model.load_pretrained_base()
         # Initialize the optimizer, with twice the default learning rate for biases, as in the original Caffe repo
         biases = list()
         not_biases = list()
@@ -85,12 +83,15 @@ def main():
     for epoch in range(start_epoch, epochs):
         # Paper describes decaying the learning rate at the 80000th, 100000th, 120000th 'iteration', i.e. model update or batch
         # The paper uses a batch size of 32 (regardless of what we use), which means there are about 517 batches in an epoch
+        # Therefore, you could do,
         # if epoch in {80000 // 517, 100000 // 517, 120000 // 517}:
         #     adjust_learning_rate(optimizer, 0.1)
+
         # In practice, I just decayed the learning rate when loss stopped improving for long periods,
         # and I would resume from the last best checkpoint with the new learning rate,
         # since there's no point in resuming at the most recent and significantly worse checkpoint.
-        # So, just do adjust_learning_rate(optimizer, 0.1) when you're ready
+        # So, when you're ready to decay the learning rate, just set checkpoint = 'BEST_checkpoint_ssd300.pth.tar' above
+        # and have adjust_learning_rate(optimizer, 0.1) BEFORE this 'for' loop
 
         # One epoch's training
         train(train_loader=train_loader,
