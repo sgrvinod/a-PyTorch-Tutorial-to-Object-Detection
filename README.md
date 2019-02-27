@@ -253,7 +253,7 @@ However, the filters of `conv6` (`7, 7, 512`) and `conv7` (`1, 1, 4096`) are rat
 
 - `conv6` will use `1024` filters of dimensions `1, 1, 1024`. Therefore, the parameters are subsampled from `4096, 1, 1, 4096` to `4096, 1, 1, 4096`.
 
-Based on the references in the paper, we will **subsample by picking every `m`th parameter along a particular dimension**, in a process known as [_decimation_](https://en.wikipedia.org/wiki/Downsampling_(signal_processing).  
+Based on the references in the paper, we will **subsample by picking every `m`th parameter along a particular dimension**, in a process known as [_decimation_](https://en.wikipedia.org/wiki/Downsampling_(signal_processing)).  
 
 Since the kernel of `conv6` is decimated from `7, 7` to `3,  3` by keeping only every 3rd value, there are now _holes_ in the kernel. Therefore, we would need to **make the kernel dilated or _atrous_**.
 
