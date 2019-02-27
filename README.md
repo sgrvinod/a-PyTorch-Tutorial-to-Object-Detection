@@ -766,19 +766,17 @@ See `MultiBoxLoss` in [`model.py`](https://github.com/sgrvinod/a-PyTorch-Tutoria
 
 Two empty tensors are created to store localization and class prediction targets, i.e. _ground truths_, for the 8732 predicted boxes in each image.
 
-**For each prior, find the corresponding ground truth object in that image that has the maximum Jaccard overlap**, stored in `object_for_each_prior`.
+We **find the ground truth object with the maximum Jaccard overlap for each prior**, stored in `object_for_each_prior`.
 
-We want to avoid the rare situation where not all of the ground truth objects have been matched. Therefore, also **find the prior with the maximum overlap for each ground truth object**, stored in `prior_for_each_object`. We explicitly add these matches to `object_for_each_prior` and artificially set their overlaps to a value above the threshold so they are not eliminated.
+We want to avoid the rare situation where not all of the ground truth objects have been matched. Therefore, we also **find the prior with the maximum overlap for each ground truth object**, stored in `prior_for_each_object`. We explicitly add these matches to `object_for_each_prior` and artificially set their overlaps to a value above the threshold so they are not eliminated.
 
-Based on the matches in `object_for_each prior`, **set the corresponding labels**, i.e. **class prediction targets**, to each of the 8732 priors. For those priors that don't overlap significantly with their matched objects, the label is set to _background_.
+Based on the matches in `object_for_each prior`, we set the corresponding labels, i.e. **targets for class prediction**, to each of the 8732 priors. For those priors that don't overlap significantly with their matched objects, the label is set to _background_.
 
-Also **encode the coordinates** of the 8732 matched objects in `object_for_each prior` in **offset form `(g_c_x, g_c_y, g_w, g_h)`** with respect to these priors, to form the **localization targets**. Not all of these 8732 localization targets are meaningful. As we discussed earlier, only the predictions arising from the non-background priors will be regressed to their targets.
+Also, we encode the coordinates of the 8732 matched objects in `object_for_each prior` in offset form `(g_c_x, g_c_y, g_w, g_h)` with respect to these priors, to form the **targets for localization**. Not all of these 8732 localization targets are meaningful. As we discussed earlier, only the predictions arising from the non-background priors will be regressed to their targets.
 
 The **localization loss** is the [Smooth L1 loss](https://pytorch.org/docs/stable/nn.html#torch.nn.SmoothL1Loss) over the positive matches.
 
-Perform Hard Negative Mining – **rank class predictions matched to _background_**, i.e. negative matches, **by their individual [Cross Entropy losses](https://pytorch.org/docs/stable/nn.html#torch.nn.CrossEntropyLoss)**.
-
-The **confidence loss** is the Cross Entropy loss over the positive matches and the hardest negative matches. Nevertheless, it is averaged only by the number of positive matches.
+Perform Hard Negative Mining – rank class predictions matched to _background_, i.e. negative matches, by their individual [Cross Entropy losses](https://pytorch.org/docs/stable/nn.html#torch.nn.CrossEntropyLoss). The **confidence loss** is the Cross Entropy loss over the positive matches and the hardest negative matches. Nevertheless, it is averaged only by the number of positive matches.
 
 The **Multibox Loss is the aggregate of these two losses**, combined in the ratio `α`. In our case, they are simply being added because `α = 1`.
 
