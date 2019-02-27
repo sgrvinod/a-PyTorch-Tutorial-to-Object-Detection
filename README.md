@@ -203,7 +203,7 @@ As per the paper, **we've to make some changes to this pretrained network** to a
 
 - We don't need the fully connected (i.e. classification) layers because they serve no purpose here. We will toss `fc8` away completely, but choose to _rework_ `fc6` and `fc7` into convolutional layers `conv6` and `conv7`.
 
-The first three are straightforward enough, but that last one probably needs some explaining.
+The first three are straightforward enough, but **that last one probably needs some explaining.**
 
 ### FC → Convolutional Layer
 
@@ -445,7 +445,7 @@ Remember, the nub of any supervised learning algorithm is that **we need to be a
 
 For the model to learn _anything_, we'd need to structure the problem in a way that allows for comparisions between our predictions and the objects actually present in the image.
 
-**Priors enable us to do exactly this.**
+Priors enable us to do exactly this.
 
 - **Find the Jaccard overlaps** between the 8732 priors and `N` ground truth objects. This will be a tensor of size `8732, N`.
 
