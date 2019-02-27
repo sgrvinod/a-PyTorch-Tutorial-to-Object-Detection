@@ -249,9 +249,9 @@ In the ImageNet VGG-16 [shown previously](https://github.com/sgrvinod/a-PyTorch-
 
 - `fc7` with an input size of `4096` (i.e. the output size of `fc6`) and an output size `4096` has parameters of dimensions `4096, 4096`. The input could be considered as a `1, 1` image with `4096` input channels. **The equivalent convolutional layer `conv7` has a `1, 1` kernel size and `4096` output channels, with reshaped parameters of dimensions `4096, 1, 1, 4096`.**
 
-We can see now that `conv6` has `4096` filters, each with dimensions `7, 7, 512`, and `conv7` has `4096` filters, each with dimensions `1, 1, 4096`.
+We can see that `conv6` has `4096` filters, each with dimensions `7, 7, 512`, and `conv7` has `4096` filters, each with dimensions `1, 1, 4096`.
 
-These filters are numerous and large – and computationally expensive.
+The filters are numerous and large – and computationally expensive.
 
 To remedy this, the authors opt to **reduce both their number and the size of each filter by subsampling parameters** from the converted convolutional layers.
 
@@ -451,7 +451,7 @@ Remember, the nub of any supervised learning algorithm is that **we need to be a
 
 For the model to learn _anything_, we'd need to structure the problem in a way that allows for comparisions between our predictions and the objects actually present in the image.
 
-Priors enable us to do exactly this.
+Priors enable us to do exactly this –
 
 - **Find the Jaccard overlaps** between the 8732 priors and `N` ground truth objects. This will be a tensor of size `8732, N`.
 
@@ -523,7 +523,7 @@ For the SSD, however, the authors simply use `α = 1`, i.e. add the two losses. 
 
 After the model is trained, we can apply it to images. However, the predictions are still in their raw form – two tensors containing the offsets and class scores for 8732 priors. These would need to be processed to **obtain final, human-interpretable bounding boxes with labels.**
 
-This entails the following.
+This entails the following –
 
 - We have 8732 predicted boxes represented as offsets `(g_c_x, g_c_y, g_w, g_h)` from their respective priors. Decode them to boundary coordinates, which are actually directly interpretable.
 
@@ -565,7 +565,7 @@ Thus, we've eliminated the rogue candidates – one of each animal.
 
 This process is called __Non-Maximum Suppression (NMS)__ because when multiple candidates are found to overlap significantly with each other such that they could be referencing the same object, **we suppress all but the one with the maximum score**.
 
-Algorithmically, it is carried out as follows.
+Algorithmically, it is carried out as follows –
 
 - Upon selecting candidades for each _non-background_ class,
 
