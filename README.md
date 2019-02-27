@@ -203,7 +203,7 @@ As per the paper, **we've to make some changes to this pretrained network** to a
 
 - We don't need the fully connected (i.e. classification) layers because they serve no purpose here. We will toss `fc8` away completely, but choose to _rework_ `fc6` and `fc7` into convolutional layers `conv6` and `conv7`.
 
-The first three are straightforward enough, but **that last one probably needs some explaining.**
+The first three are straightforward enough, but that last one probably needs some explaining.
 
 ### FC → Convolutional Layer
 
