@@ -277,7 +277,7 @@ Again, take note of the feature maps from `conv8_2`, `conv9_2`, `conv10_2`, and 
 
 ### A detour
 
-Before we move on to our prediction convolutions, we must first understand what it is we are predicting. Sure, it's objects and their positions, _but in what form?_
+Before we move on to the prediction convolutions, we must first understand what it is we are predicting. Sure, it's objects and their positions, _but in what form?_
 
 It is here that we must learn about _priors_ and the crucial role they play in the SSD.
 
