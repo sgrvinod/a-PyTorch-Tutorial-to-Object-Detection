@@ -114,7 +114,9 @@ There are more examples at the [end of the tutorial](https://github.com/sgrvinod
 
 In this section, I will present an overview of this model. If you're already familiar with it, you can skip straight to the [Implementation](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#implementation) section or the commented code.
 
-As we proceed, you will notice that there's a fair bit of engineering that's resulted in the SSD's very specific structure and formulation. Don't worry if some aspects of it seem contrived or unspontaneous. Remember, it's built upon _years_ of (often empirical) research in this field.
+As we proceed, you will notice that there's a fair bit of engineering that's resulted in the SSD's very specific structure and formulation. Don't worry if some aspects of it seem contrived or unspontaneous at first. Remember, it's built upon _years_ of (often empirical) research in this field.
+
+I, for my part, hope I've been able to distill a moderately complex [paper](https://arxiv.org/abs/1512.02325) into a reasonably easy-to-understand tutorial.
 
 ### Some definitions
 
@@ -231,7 +233,7 @@ The two scenarios are equivalent.
 
 What does this tell us?
 
-That **on an image of size `H, W` with `I` input channels, a fully connected layer of output size `N` is equivalent to a convolutional layer with kernel size equal to the image size `H, W` and `N` output channels**, provided that the parameters of the fully connected network `N, H*W*I` are the same as the parameters of the convolutional layer `N, H, W, I`.
+That **on an image of size `H, W` with `I` input channels, a fully connected layer of output size `N` is equivalent to a convolutional layer with kernel size equal to the image size `H, W` and `N` output channels**, provided that the parameters of the fully connected network `N, H * W * I` are the same as the parameters of the convolutional layer `N, H, W, I`.
 
 ![](./img/fcconv4.jpg)
 
@@ -243,15 +245,19 @@ We now know how to convert `fc6` and `fc7` in the original VGG-16 architecture i
 
 In the ImageNet VGG-16 [shown previously](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#base-convolutions--part-1), which operates on images of size `224, 224, 3`, you can see that the output of `conv5_3` will be of size `7, 7, 512`. Therefore –
 
-- `fc6` with an input size of `7*7*512` and an output size of `4096` has parameters of dimensions `4096, 7*7*512`. **The equivalent convolutional layer `conv6` has a kernel size `7, 7` and output channels `4096`, with reshaped parameters of dimensions `4096, 7, 7, 512`.**
+- `fc6` with a flattened input size of `7 * 7 * 512` and an output size of `4096` has parameters of dimensions `4096, 7 * 7 * 512`. **The equivalent convolutional layer `conv6` has a `7, 7` kernel size and `4096` output channels, with reshaped parameters of dimensions `4096, 7, 7, 512`.**
 
-- `fc7` with an input size of `4096` (i.e. the output size of `fc6`) and an output size `4096` has parameters of dimensions `4096, 4096`. The input could be considered as a `1, 1` image with `4096` input channels. **The equivalent convolutional layer `conv7` has a kernel size `1, 1` and output channels `4096`, with reshaped parameters of dimensions `4096, 1, 1, 4096`.**
+- `fc7` with an input size of `4096` (i.e. the output size of `fc6`) and an output size `4096` has parameters of dimensions `4096, 4096`. The input could be considered as a `1, 1` image with `4096` input channels. **The equivalent convolutional layer `conv7` has a `1, 1` kernel size and `4096` output channels, with reshaped parameters of dimensions `4096, 1, 1, 4096`.**
 
-However, the filters of `conv6` (`7, 7, 512`) and `conv7` (`1, 1, 4096`) are rather large and computationally intensive. To remedy this, the authors decide to **reduce filter sizes by subsampling parameters** from the converted convolutional layers.
+We can see now that `conv6` has `4096` filters, each with dimensions `7, 7, 512`, and `conv7` has `4096` filters, each with dimensions `1, 1, 4096`.
 
-- `conv6` will use `1024` filters of dimensions `2, 2, 512`. Therefore, the parameters are subsampled from `4096, 7, 7, 512` to `1024, 2, 2, 512`.
+These filters are numerous and large – and computationally expensive.
 
-- `conv6` will use `1024` filters of dimensions `1, 1, 1024`. Therefore, the parameters are subsampled from `4096, 1, 1, 4096` to `4096, 1, 1, 4096`.
+To remedy this, the authors opt to **reduce both their number and the size of each filter by subsampling parameters** from the converted convolutional layers.
+
+- `conv6` will use `1024` filters, each with dimensions `3, 3, 512`. Therefore, the parameters are subsampled from `4096, 7, 7, 512` to `1024, 3, 3, 512`.
+
+- `conv6` will use `1024` filters, each with dimensions `1, 1, 1024`. Therefore, the parameters are subsampled from `4096, 1, 1, 4096` to `4096, 1, 1, 4096`.
 
 Based on the references in the paper, we will **subsample by picking every `m`th parameter along a particular dimension**, in a process known as [_decimation_](https://en.wikipedia.org/wiki/Downsampling_(signal_processing)).  
 
