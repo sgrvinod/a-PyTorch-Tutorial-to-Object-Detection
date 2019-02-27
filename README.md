@@ -90,6 +90,10 @@ Here are some examples of object detection in images not seen during training â€
 
 ---
 
+There are more examples at the [end of the tutorial](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#some-more-examples).
+
+---
+
 # Concepts
 
 * **Object Detection**. duh.
