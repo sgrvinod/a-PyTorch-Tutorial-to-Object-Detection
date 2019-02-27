@@ -955,23 +955,15 @@ There are no one-size-fits-all values for `min_score`, `max_overlap`, and `top_k
 
 # FAQs
 
-__I see that priors often overshoot the field of the `3, 3` kernel employed in the prediction convolutions. How can the kernel detect the bound (of an object) outside it?__
+__I noticed that priors often overshoot the `3, 3` kernel employed in the prediction convolutions. How can the kernel detect a bound (of an object) outside it?__
 
-Don't confuse the kernel and its _receptive field_, which is the area of the original image that is represented in the kernel's field.
+Don't confuse the kernel and its _receptive field_, which is the area of the original image that is represented in the kernel's field-of-view.
 
-For example, for the `38, 38` feature map from `conv4_3`, a `3, 3` kernel covers an area of `0.08, 0.08` in fractional coordinates. The priors are `0.1, 0.1`, `0.14, 0.07`, `0.07, 0.14`, and `0.14, 0.14`.
+For example, on the `38, 38` feature map from `conv4_3`, a `3, 3` kernel covers an area of `0.08, 0.08` in fractional coordinates. The priors are `0.1, 0.1`, `0.14, 0.07`, `0.07, 0.14`, and `0.14, 0.14`.
 
-But its receptive field is a whopping `0.36, 0.36`! Therefore, all priors (and corresponding objects) are present well inside it.
+But its receptive field, which [you can calculate](https://medium.com/mlreview/a-guide-to-receptive-field-arithmetic-for-convolutional-neural-networks-e0f514068807), is a whopping `0.36, 0.36`! Therefore, all priors (and objects contained therein) are present well inside it.
 
-The receptive field grows with every successive convolution. For `conv_7` and the higher-level feature maps, a `3, 3` kernel's receptive field will cover the _entire_ `300, 300` image. But, as always, the pixels in the original image that are closer to the center of the kernel have greater representation, so it is still _local_ in a sense.
-
----
-
-__How are the priors really the "starting points" for predicting objects?__
-
-In using a prior to match a prediction and a ground truth, there is an implicit assumption that _the prior is an appoximation of the truth_.
-
-Then, all that remains is to reduce this "approximateness" as best we can, which is the objective of the regression.
+Keep in mind that the receptive field grows with every successive convolution. For `conv_7` and the higher-level feature maps, a `3, 3` kernel's receptive field will cover the _entire_ `300, 300` image. But, as always, the pixels in the original image that are closer to the center of the kernel have greater representation, so it is still _local_ in a sense.
 
 ---
 
@@ -983,7 +975,7 @@ And this is why priors are especially useful. We can match a predicted box to a 
 
 ---
 
-__Why do we even have a _background_ class if we're only checking if scores of the _non-background_ classes meet a threshold?__
+__Why do we even have a _background_ class if we're only checking which _non-background_ classes meet the threshold?__
 
 When there is no object in the approximate field of the prior, a high score for _background_ will dilute the scores of the other classes such that they will not meet the detection threshold.
 
