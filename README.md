@@ -237,7 +237,7 @@ Therefore, any fully connected layer can be converted to an equivalent convoluti
 
 We now know how to convert `fc6` and `fc7` in the original VGG-16 architecture into `conv6` and `conv7` respectively.
 
-In the ImageNet VGG-16 [shown previously](), which operates on images of size `224, 224, 3`, you can see that the output of `conv5_3` will be of size `7, 7, 512`. Therefore –
+In the ImageNet VGG-16 [shown previously](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#base-convolutions--part-1), which operates on images of size `224, 224, 3`, you can see that the output of `conv5_3` will be of size `7, 7, 512`. Therefore –
 
 - `fc6` with an input size of `7*7*512` and an output size of `4096` has parameters of dimensions `4096, 7*7*512`. **The equivalent convolutional layer `conv6` has a kernel size `7, 7` and output channels `4096`, with reshaped parameters of dimensions `4096, 7, 7, 512`.**
 
@@ -305,7 +305,7 @@ In defining the priors, the authors specify that –
 | `conv11_2`      | 1, 1       | 0.9 | 1:1, 2:1, 1:2 + an extra prior | 4 | 4 |
 | **Grand Total**      |    -    | - | - | - | **8732 priors** |
 
-There are a total of `8732` priors defined for the SSD300!
+There are a total of 8732 priors defined for the SSD300!
 
 #### Visualizing Priors
 
@@ -329,7 +329,7 @@ The same priors also exist for each of the other tiles.
 
 #### Predictions vis-à-vis Priors
 
-[In the Multibox section](), we said we would use regression to find the coordinates of an object's bounding box. But then, surely, the priors can't represent our final predicted boxes?
+[Earlier](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#multibox), we said we would use regression to find the coordinates of an object's bounding box. But then, surely, the priors can't represent our final predicted boxes?
 
 They don't.
 
@@ -349,7 +349,7 @@ Then –
 
 ![](./img/ecs2.PNG)
 
-This answers the question we posed at the [beginning of this section](). Considering that each prior is adjusted to obtain a more precise prediction, **these four offsets `(g_c_x, g_c_y, g_w, g_h)` are the form in which we will regress bounding boxes' coordinates**.
+This answers the question we posed at the [beginning of this section](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#a-detour). Considering that each prior is adjusted to obtain a more precise prediction, **these four offsets `(g_c_x, g_c_y, g_w, g_h)` are the form in which we will regress bounding boxes' coordinates**.
 
 As you can see, each offset is normalized by the corresponding dimension of the prior. This makes sense because a certain offset would be less significant for a larger prior than it would be for a smaller prior.
 
@@ -407,7 +407,7 @@ We have arranged the `150` predictions serially. To the human mind, this should 
 
 But let's not stop here. We could do the same for the predictions for _all_ layers and stack them together.
 
-We calculated earlier that there are a total of `8732` priors defined for our model. Therefore, there will be **`8732` predicted boxes in encoded-offset form, and `8732` sets of class scores**.
+We calculated earlier that there are a total of 8732 priors defined for our model. Therefore, there will be **8732 predicted boxes in encoded-offset form, and 8732 sets of class scores**.
 
 ![](./img/reshaping2.jpg)
 
@@ -443,15 +443,15 @@ For the model to learn _anything_, we'd need to structure the problem in a way t
 
 **Priors enable us to do exactly this.**
 
-- **Find the Jaccard overlaps** between the `8732` priors and `N` ground truth objects. This will be a tensor of size `8732, N`.
+- **Find the Jaccard overlaps** between the 8732 priors and `N` ground truth objects. This will be a tensor of size `8732, N`.
 
-- **Match** each of the `8732` priors to the object with which it has the greatest overlap.
+- **Match** each of the 8732 priors to the object with which it has the greatest overlap.
 
 - If a prior is matched with an object with a **Jaccard overlap of less than `0.5`**, then it cannot be said to "contain" the object, and is therefore a **_negative_ match**. Considering we have thousands of priors, most priors will test negative for an object.
 
 - On the other hand, a handful of priors will actually **overlap significantly (greater than `0.5`)** with an object, and can be said to "contain" that object. These are **_positive_ matches**.
 
-- Now that we have **matched each of the `8732` priors to a ground truth**, we have, in effect, also **matched the corresponding `8732` predictions to a ground truth**.  
+- Now that we have **matched each of the 8732 priors to a ground truth**, we have, in effect, also **matched the corresponding 8732 predictions to a ground truth**.  
 
 Let's reproduce this logic with an example.
 
@@ -511,15 +511,15 @@ For the SSD, however, the authors simply use `α = 1`, i.e. add the two losses. 
 
 ### Processing predictions
 
-After the model is trained, we can apply it to images. However, the predictions are still in their raw form – two tensors containing the offsets and class scores for `8732` priors. These would need to be processed to **obtain final, human-interpretable bounding boxes with labels.**
+After the model is trained, we can apply it to images. However, the predictions are still in their raw form – two tensors containing the offsets and class scores for 8732 priors. These would need to be processed to **obtain final, human-interpretable bounding boxes with labels.**
 
 This entails the following.
 
-- We have `8732` predicted boxes represented as offsets `(g_c_x, g_c_y, g_w, g_h)` from their respective priors. Decode them to boundary coordinates, which are actually directly interpretable.
+- We have 8732 predicted boxes represented as offsets `(g_c_x, g_c_y, g_w, g_h)` from their respective priors. Decode them to boundary coordinates, which are actually directly interpretable.
 
 - Then, for each _non-background_ class,
 
-  - Extract the scores for this class for each of the `8732` boxes.
+  - Extract the scores for this class for each of the 8732 boxes.
 
   - Eliminate boxes that do not meet a certain threshold for this score.
 
@@ -605,11 +605,11 @@ Each object is represented by –
 
 Specfically, you will need to download the following VOC datasets –
 
-- [2007 _trainval_]() (460MB)
+- [2007 _trainval_](http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar) (460MB)
 
-- [2012 _trainval_]() (2GB)
+- [2012 _trainval_](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar) (2GB)
 
-- [2007 _test_]() (451MB)
+- [2007 _test_](http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar) (451MB)
 
 Consistent with the paper, the two _trainval_ datasets are to be used for training, while the VOC 2007 _test_ will serve as our validation and testing data.  
 
@@ -674,7 +674,7 @@ See `PascalVOCDataset` in [`datasets.py`](https://github.com/sgrvinod/a-PyTorch-
 
 This is a subclass of PyTorch [`Dataset`](https://pytorch.org/docs/master/data.html#torch.utils.data.Dataset), used to **define our training and test datasets.** It needs a `__len__` method defined, which returns the size of the dataset, and a `__getitem__` method which returns the `i`th image, bounding boxes of the objects in this image, and labels for the objects in this image, using the JSON files we saved earlier.
 
-You will notice that it also returns the perceived detection difficulties of each of these objects, but these are not actually used in training the model. They are required only in the [Evaluation]() stage for computing the Mean Average Precision (mAP) metric. We also have the option of filtering out _difficult_ objects entirely from our data to speed up training.
+You will notice that it also returns the perceived detection difficulties of each of these objects, but these are not actually used in training the model. They are required only in the [Evaluation](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#evaluation) stage for computing the Mean Average Precision (mAP) metric. We also have the option of filtering out _difficult_ objects entirely from our data to speed up training.
 
 Additionally, inside this class, **each image and the objects in them are subject to a slew of transformations** as described in the paper and outlined below.
 
@@ -724,7 +724,7 @@ See `AuxiliaryConvolutions` in [`model.py`](https://github.com/sgrvinod/a-PyTorc
 
 Here, we **create and apply auxiliary convolutions.**
 
-Use a [uniform Xavier initialization]() for the parameters of these layers.
+Use a [uniform Xavier initialization](https://pytorch.org/docs/stable/nn.html#torch.nn.init.xavier_uniform_) for the parameters of these layers.
 
 We're especially interested in the higher-level feature maps that result from `conv8_2`, `conv9_2`, `conv10_2` and `conv11_2`, which we return for use in subsequent stages.
 
@@ -736,7 +736,7 @@ Here, we **create and apply localization and class prediction convolutions** to 
 
 These layers are initialized in a manner similar to the auxiliary convolutions.
 
-Reshape the resulting _prediction maps_ and stack them as discussed. Note that reshaping in PyTorch is only possible if the original tensor is stored in a [contiguous]() chunk of memory.
+Reshape the resulting _prediction maps_ and stack them as discussed. Note that reshaping in PyTorch is only possible if the original tensor is stored in a [contiguous](https://pytorch.org/docs/stable/tensors.html#torch.Tensor.contiguous) chunk of memory.
 
 As expected, the stacked localization and class predictions will be of dimensions `8732, 4` and `8732, 21` respectively.
 
@@ -770,9 +770,9 @@ Based on the matches in `object_for_each prior`, **set the corresponding labels*
 
 Also **encode the coordinates** of the 8732 matched objects in `object_for_each prior` in **offset form `(g_c_x, g_c_y, g_w, g_h)`** with respect to these priors, to form the **localization targets**. Not all of these 8732 localization targets are meaningful. As we discussed earlier, only the predictions arising from the non-background priors will be regressed to their targets.
 
-The **localization loss** is the [Smooth L1]() loss over the positive matches.
+The **localization loss** is the [Smooth L1 loss](https://pytorch.org/docs/stable/nn.html#torch.nn.SmoothL1Loss) over the positive matches.
 
-Perform Hard Negative Mining – **rank class predictions matched to _background_**, i.e. negative matches, **by their individual [Cross Entropy]() losses**.
+Perform Hard Negative Mining – **rank class predictions matched to _background_**, i.e. negative matches, **by their individual [Cross Entropy losses](https://pytorch.org/docs/stable/nn.html#torch.nn.CrossEntropyLoss)**.
 
 The **confidence loss** is the Cross Entropy loss over the positive matches and the hardest negative matches. Nevertheless, it is averaged only by the number of positive matches.
 
@@ -800,7 +800,7 @@ In the paper, they recommend using **Stochastic Gradient Descent** in batches of
 
 I ended up using a batch size of `8` images for increased stability. If you find that your gradients are exploding, you could reduce the batch size, like I did, or clip gradients.
 
-The authors also doubled the learning rate for bias parameters. As you can see in the code, this is easy do in PyTorch, by passing separate groups of parameters to the `params` argument of its [SGD optimizer]().
+The authors also doubled the learning rate for bias parameters. As you can see in the code, this is easy do in PyTorch, by passing [separate groups of parameters](https://pytorch.org/docs/stable/optim.html#per-parameter-options) to the `params` argument of its [SGD optimizer](https://pytorch.org/docs/stable/optim.html#torch.optim.SGD).
 
 The paper recommends training for 80000 iterations at the initial learning rate. Then, it is decayed by 90% for an additional 20000 iterations, _twice_. With the paper's batch size of `32`, this means that the learning rate is decayed by 90% once at the 155th epoch and once more at the 194th epoch, and training is stopped at 232 epochs.
 
@@ -820,9 +820,9 @@ See [`eval.py`](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detecti
 
 The data-loading and checkpoint parameters for evaluating the model are at the beginning of the file, so you can easily check or modify them should you wish to.
 
-To begin evaluation, simply run the `evaluate()` function with the data-loader and model checkpoint. **Raw predictions for each image in the test set are obtained and parsed** with the checkpoint's `detect_objects()` method, [explained here](). Evaluation has to be done at a `min_score` of `0.01`, an NMS `max_overlap` of `0.45`, and `top_k` of `200` to allow fair comparision of results with the paper and other implementations.
+To begin evaluation, simply run the `evaluate()` function with the data-loader and model checkpoint. **Raw predictions for each image in the test set are obtained and parsed** with the checkpoint's `detect_objects()` method, [explained here](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#processing-predictions). Evaluation has to be done at a `min_score` of `0.01`, an NMS `max_overlap` of `0.45`, and `top_k` of `200` to allow fair comparision of results with the paper and other implementations.
 
-**Parsed predictions are evaluated against the ground truth objects.** The evaluation metric is the _Mean Average Precision (mAP)_. If you're not familiar with this metric, [here's a great explanation]().
+**Parsed predictions are evaluated against the ground truth objects.** The evaluation metric is the _Mean Average Precision (mAP)_. If you're not familiar with this metric, [here's a great explanation](https://medium.com/@jonathan_hui/map-mean-average-precision-for-object-detection-45c121a31173).
 
 We will use `calculate_mAP()` in [`utils.py`](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/utils.py) for this purpose. As is the norm, we will ignore _difficult_ detections in the mAP calculation. But nevertheless, it is important to include them from the evaluation dataset because if the model does detect an object that is considered to be _difficult_, it must not be counted as a false positive.
 
@@ -873,8 +873,77 @@ detect(original_image, min_score=0.2, max_overlap=0.5, top_k=200).show()
 
 This function first **preprocesses the image by resizing and normalizing its RGB channels** as required by the model. It then **obtains raw predictions from the model, which are parsed** by the `detect_objects()` method in the model. The parsed results are converted from fractional to absolute boundary coordinates, their labels are decoded with the `label_map`, and they are **visualized on the image**.
 
-There are no one-size-fits-all values for `min_score`, `max_overlap`, and `top_k`. You may need to experiment a little to find what yields the best results for your target data.
+There are no one-size-fits-all values for `min_score`, `max_overlap`, and `top_k`. You may need to experiment a little to find what works best for your target data.
 
+### Some more examples
+
+---
+
+<p align="center">
+<img src="./img/000029.jpg">
+</p>
+
+---
+
+<p align="center">
+<img src="./img/000045.jpg">
+</p>
+
+---
+
+<p align="center">
+<img src="./img/000062.jpg">
+</p>
+
+---
+
+<p align="center">
+<img src="./img/000075.jpg">
+</p>
+
+---
+
+<p align="center">
+<img src="./img/000085.jpg">
+</p>
+
+---
+
+<p align="center">
+<img src="./img/000092.jpg">
+</p>
+
+---
+
+<p align="center">
+<img src="./img/000100.jpg">
+</p>
+
+---
+
+<p align="center">
+<img src="./img/000124.jpg">
+</p>
+
+---
+
+<p align="center">
+<img src="./img/000127.jpg">
+</p>
+
+---
+
+<p align="center">
+<img src="./img/000128.jpg">
+</p>
+
+---
+
+<p align="center">
+<img src="./img/000145.jpg">
+</p>
+
+---
 
 # FAQs
 
