@@ -100,7 +100,7 @@ Here are some examples of object detection in images not seen during training â€
 
 * **Priors**. These are pre-computed boxes defined at specific positions on specific feature maps, with specific aspect ratios and scales. They are carefully chosen to match the characteristics of objects' bounding boxes (i.e. the ground truths) in the dataset.
 
-* **Multibox**. This is a [technique](https://arxiv.org/abs/1312.2249) that formulates predicting an object's bounding box as a _regression_ problem, wherein a detected object's coordinates are regressed to its ground truth's coordinates. In addition, for each predicted box, scores are generated for various object types. Priors serve as feasible starting points for predictions since they are modeled on the ground truths. Therefore, there will be as many predicted boxes as there are priors, most of whom will contain no object.
+* **Multibox**. This is [a technique](https://arxiv.org/abs/1312.2249) that formulates predicting an object's bounding box as a _regression_ problem, wherein a detected object's coordinates are regressed to its ground truth's coordinates. In addition, for each predicted box, scores are generated for various object types. Priors serve as feasible starting points for predictions since they are modeled on the ground truths. Therefore, there will be as many predicted boxes as there are priors, most of whom will contain no object.
 
 * **Hard Negative Mining**. This refers to explicitly choosing the most egregious false positives predicted by a model and forcing it to learn from these examples. In other words, we are mining only those negatives that the model found _hardest_ to identify correctly. In the context of object detection, where the vast majority of predicted boxes do not contain an object, this also serves to reduce the negative-positive imbalance.
 
@@ -110,7 +110,7 @@ Here are some examples of object detection in images not seen during training â€
 
 In this section, I will present an overview of this model. If you're already familiar with it, you can skip straight to the [Implementation](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#implementation) section or the commented code.
 
-As we proceed, you will notice that there's a lot of engineering that's resulted in the SSD's very specific structure and formulation. Don't worry if some aspects of it seem contrived or unspontaneous at first. Remember, it is built upon _years_ of (often empirical) research in this field. And if you're new to object detection, like I was, you're leapfrogging quite a lot of it.
+As we proceed, you will notice that there's a fair bit of engineering that's resulted in the SSD's very specific structure and formulation. Don't worry if some aspects of it seem contrived or unspontaneous. Remember, it's built upon _years_ of (often empirical) research in this field.
 
 ### Some definitions
 
