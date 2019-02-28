@@ -116,8 +116,6 @@ In this section, I will present an overview of this model. If you're already fam
 
 As we proceed, you will notice that there's a fair bit of engineering that's resulted in the SSD's very specific structure and formulation. Don't worry if some aspects of it seem contrived or unspontaneous at first. Remember, it's built upon _years_ of (often empirical) research in this field.
 
-I, for my part, hope I've been able to distill a moderately complex [paper](https://arxiv.org/abs/1512.02325) into a reasonably easy-to-understand tutorial.
-
 ### Some definitions
 
 A box is a box. A _bounding_ box is a box that wraps around an object i.e. represents its bounds.
