@@ -38,6 +38,8 @@ I'm using `PyTorch 0.4` in `Python 3.6`.
 
 We will be implementing the [Single Shot Multibox Detector (SSD)](https://arxiv.org/abs/1512.02325), a popular, powerful, and especially nimble network for this task. The authors' original implementation can be found [here](https://github.com/weiliu89/caffe/tree/ssd).
 
+---
+
 Here are some examples of object detection in images not seen during training –
 
 ---
@@ -104,7 +106,7 @@ There are more examples at the [end of the tutorial](https://github.com/sgrvinod
 
 * **Priors**. These are pre-computed boxes defined at specific positions on specific feature maps, with specific aspect ratios and scales. They are carefully chosen to match the characteristics of objects' bounding boxes (i.e. the ground truths) in the dataset.
 
-* **Multibox**. This is [a technique](https://arxiv.org/abs/1312.2249) that formulates predicting an object's bounding box as a _regression_ problem, wherein a detected object's coordinates are regressed to its ground truth's coordinates. In addition, for each predicted box, scores are generated for various object types. Priors serve as feasible starting points for predictions since they are modeled on the ground truths. Therefore, there will be as many predicted boxes as there are priors, most of whom will contain no object.
+* **Multibox**. This is [a technique](https://arxiv.org/abs/1312.2249) that formulates predicting an object's bounding box as a _regression_ problem, wherein a detected object's coordinates are regressed to its ground truth's coordinates. In addition, for each predicted box, scores are generated for various object types. Priors serve as feasible starting points for predictions because they are modeled on the ground truths. Therefore, there will be as many predicted boxes as there are priors, most of whom will contain no object.
 
 * **Hard Negative Mining**. This refers to explicitly choosing the most egregious false positives predicted by a model and forcing it to learn from these examples. In other words, we are mining only those negatives that the model found _hardest_ to identify correctly. In the context of object detection, where the vast majority of predicted boxes do not contain an object, this also serves to reduce the negative-positive imbalance.
 
@@ -145,7 +147,7 @@ This is a more explicit way of representing a box's position and dimensions.
 
 The center-size coordinates of a box are **`(c_x, c_y, w, h)`**.
 
-In the code, you will find that we routinely use both coordinate systems depending upon their suitability for the task, and always in their fractional forms.
+In the code, you will find that we routinely use both coordinate systems depending upon their suitability for the task, and _always_ in their fractional forms.
 
 #### Jaccard Index
 
@@ -153,13 +155,13 @@ The Jaccard Index or Jaccard Overlap or Intersection-over-Union (IoU) measure th
 
 ![](./img/jaccard.jpg)
 
-An IoU of `1` implies they are the _same_ box, while an value of `0` indicates they're mutually exclusive spaces.
+An IoU of `1` implies they are the _same_ box, while a value of `0` indicates they're mutually exclusive spaces.
 
-It's a simple metric but, as you will discover, also one that finds many applications in our model.
+It's a simple metric, but – as you will discover – also one that finds many applications in our model.
 
 ### Multibox
 
-Multibox is a technique for detecting objects where a prediction consists of two components.
+Multibox is a technique for detecting objects where a prediction consists of two components –
 
 - **Coordinates of a box that may or may not contain an object**. This is a _regression_ task.
 
@@ -167,13 +169,13 @@ Multibox is a technique for detecting objects where a prediction consists of two
 
 ### Single Shot Detector (SSD)
 
-The SSD is a purely convolutional neural network (CNN) that we can organize into three parts.
+The SSD is a purely convolutional neural network (CNN) that we can organize into three parts –
 
 - __Base convolutions__ derived from an existing image classification architecture that will provide lower-level feature maps.
 
 - __Auxiliary convolutions__ added on top of the base network that will provide higher-level feature maps.
 
-- __Prediction convolutions__ that will locate and identify objects.
+- __Prediction convolutions__ that will locate and identify objects in these feature maps.
 
 The paper demonstrates two variants of the model called the SSD300 and the SSD512. The suffixes represent the size of the input image. Although the two networks differ slightly in the way they are constructed, they are in principle the same. The SSD512 is just a larger network and results in marginally better performance.
 
@@ -187,11 +189,11 @@ Because models proven to work well with image classification are already pretty 
 
 There's also the added advantage of being able to use layers pretrained on a reliable classification dataset. As you may know, this is called **Transfer Learning**. By borrowing knowledge from a different but closely related task, we've made progress before we've even begun.
 
-The authors of the paper employ the **VGG-16 architecture** as their base network. It's rather simple in its original form –
+The authors of the paper employ the **VGG-16 architecture** as their base network. It's rather simple in its original form.
 
 ![](./img/vgg16.PNG)
 
-They recommend using one that's **pretrained on the ImageNet Large Scale Visual Recognition Competition (ILSVRC) classification task.** Luckily, there's one already available in PyTorch, as are other popular architectures. If you wish, you could opt for something larger like the ResNet. Just be mindful of the computational requirements.  
+They recommend using one that's pretrained on the _ImageNet Large Scale Visual Recognition Competition (ILSVRC)_ classification task. Luckily, there's one already available in PyTorch, as are other popular architectures. If you wish, you could opt for something larger like the ResNet. Just be mindful of the computational requirements.  
 
 As per the paper, **we've to make some changes to this pretrained network** to adapt it to our own challenge of object detection. Some are logical and necessary, while others are mostly a matter of convenience or preference.
 
@@ -203,7 +205,7 @@ As per the paper, **we've to make some changes to this pretrained network** to a
 
 - We don't need the fully connected (i.e. classification) layers because they serve no purpose here. We will toss `fc8` away completely, but choose to **_rework_ `fc6` and `fc7` into convolutional layers `conv6` and `conv7`**.
 
-The first three are straightforward enough, but that last one probably needs some explaining.
+The first three modifications are straightforward enough, but that last one probably needs some explaining.
 
 ### FC → Convolutional Layer
 
@@ -249,13 +251,13 @@ In the ImageNet VGG-16 [shown previously](https://github.com/sgrvinod/a-PyTorch-
 
 We can see that `conv6` has `4096` filters, each with dimensions `7, 7, 512`, and `conv7` has `4096` filters, each with dimensions `1, 1, 4096`.
 
-The filters are numerous and large – and computationally expensive.
+These filters are numerous and large – and computationally expensive.
 
 To remedy this, the authors opt to **reduce both their number and the size of each filter by subsampling parameters** from the converted convolutional layers.
 
 - `conv6` will use `1024` filters, each with dimensions `3, 3, 512`. Therefore, the parameters are subsampled from `4096, 7, 7, 512` to `1024, 3, 3, 512`.
 
-- `conv6` will use `1024` filters, each with dimensions `1, 1, 1024`. Therefore, the parameters are subsampled from `4096, 1, 1, 4096` to `4096, 1, 1, 4096`.
+- `conv6` will use `1024` filters, each with dimensions `1, 1, 1024`. Therefore, the parameters are subsampled from `4096, 1, 1, 4096` to `1024, 1, 1, 1024`.
 
 Based on the references in the paper, we will **subsample by picking every `m`th parameter along a particular dimension**, in a process known as [_decimation_](https://en.wikipedia.org/wiki/Downsampling_(signal_processing)).  
 
@@ -287,7 +289,7 @@ It is here that we must learn about _priors_ and the crucial role they play in t
 
 #### Priors
 
-Object predictions can be quite diverse, and I don't just mean their type. They can occur at any position, with any size and shape. Mind you, we shouldn't go as far as to say there are infinite possibilities for where and how an object can occur. While this may be true mathematically, many options are simply improbable or uninteresting. Furthermore, we needn't insist that boxes are pixel-perfect.
+Object predictions can be quite diverse, and I don't just mean their type. They can occur at any position, with any size and shape. Mind you, we shouldn't go as far as to say there are _infinite_ possibilities for where and how an object can occur. While this may be true mathematically, many options are simply improbable or uninteresting. Furthermore, we needn't insist that boxes are pixel-perfect.
 
 In effect, we can discretize the mathematical space of potential predictions into just _thousands_ of possibilities.
 
@@ -299,7 +301,7 @@ In defining the priors, the authors specify that –
 
 - **they will be applied to various low-level and high-level feature maps**, viz. those from `conv4_3`, `conv7`, `conv8_2`, `conv9_2`, `conv10_2`, and `conv11_2`. These are the same feature maps indicated on the figures before.
 
-- **if a prior has a scale `s`, then its area is equal to that of a square with side `s`**. The largest feature map, `conv4_3`, will have priors with a scale of `0.1`, i.e. `10%` of image's size, while the rest have priors with scales linearly increasing from `0.2` to `0.9`. As you can see, larger feature maps have smaller scales and therefore ideal for detecting smaller objects.
+- **if a prior has a scale `s`, then its area is equal to that of a square with side `s`**. The largest feature map, `conv4_3`, will have priors with a scale of `0.1`, i.e. `10%` of image's dimensions, while the rest have priors with scales linearly increasing from `0.2` to `0.9`. As you can see, larger feature maps have priors with smaller scales and are therefore ideal for detecting smaller objects.
 
 - **At _each_ position on a feature map, there will be priors of various aspect ratios**. All feature maps will have priors with ratios `1:1, 2:1, 1:2`. The intermediate feature maps of `conv7`, `conv8_2`, and `conv9_2` will _also_ have priors with ratios `3:1, 1:3`. Moreover, all feature maps will have *one extra prior* with an aspect ratio of `1:1` and at a scale that is the geometric mean of the scales of the current and subsequent feature map.
 
@@ -311,7 +313,7 @@ In defining the priors, the authors specify that –
 | `conv9_2`      | 5, 5       | 0.55 | 1:1, 2:1, 1:2, 3:1, 1:3 + an extra prior | 6 | 150 |
 | `conv10_2`      | 3,  3       | 0.725 | 1:1, 2:1, 1:2 + an extra prior | 4 | 36 |
 | `conv11_2`      | 1, 1       | 0.9 | 1:1, 2:1, 1:2 + an extra prior | 4 | 4 |
-| **Grand Total**      |    -    | - | - | - | **8732 priors** |
+| **Grand Total**      |    –    | – | – | – | **8732 priors** |
 
 There are a total of 8732 priors defined for the SSD300!
 
@@ -405,7 +407,7 @@ Now, **do the same with the class predictions.** Assume `n_classes = 3`.
 
 ![](./img/predconv4.jpg)
 
-You can see how the class scores for each prior are arranged in sets of three.
+You can see that the class scores for each prior can be grouped in sets of three.
 
 Now that we understand what the predictions for the feature map from `conv9_2` look like, we can **reshape them into a more amenable form.**
 
@@ -449,7 +451,7 @@ Remember, the nub of any supervised learning algorithm is that **we need to be a
 
 For the model to learn _anything_, we'd need to structure the problem in a way that allows for comparisions between our predictions and the objects actually present in the image.
 
-Priors enable us to do exactly this –
+Priors enable us to do exactly this!
 
 - **Find the Jaccard overlaps** between the 8732 priors and `N` ground truth objects. This will be a tensor of size `8732, N`.
 
@@ -485,7 +487,7 @@ Therefore, the localization loss is computed only on how accurately we regress p
 
 Since we predicted localization boxes in the form of offsets `(g_c_x, g_c_y, g_w, g_h)`, we would also need to encode the ground truth coordinates accordingly before we calculate the loss.
 
-The localization loss is the averaged **Smooth L1** loss between the positive matches and their ground truth offsets.
+The localization loss is the averaged **Smooth L1** loss between the encoded offsets of positively matched localization boxes and their ground truths.
 
 ![](./img/locloss.jpg)
 
@@ -513,7 +515,7 @@ The **Multibox loss is the aggregate of the two losses**, combined in a ratio `�
 
 ![](./img/totalloss.jpg)
 
-In general, we don't need to decide on a value for `α`. It could be a learnable parameter.
+In general, we needn't decide on a value for `α`. It could be a learnable parameter.
 
 For the SSD, however, the authors simply use `α = 1`, i.e. add the two losses. We'll take it!
 
@@ -533,7 +535,7 @@ This entails the following –
 
   - The remaining (uneliminated) boxes are candidates for this particular class of object.
 
-At this point, if you were to draw these candidate boxes on the original image, you'd see **a lot of highly overlapping boxes that are obviously redundant**. This is because it's extremely likely that, from the thousands of priors at our disposal, more than one prediction corresponds to the same object.
+At this point, if you were to draw these candidate boxes on the original image, you'd see **many highly overlapping boxes that are obviously redundant**. This is because it's extremely likely that, from the thousands of priors at our disposal, more than one prediction corresponds to the same object.
 
 For instance, consider the image below.
 
@@ -575,6 +577,8 @@ Algorithmically, it is carried out as follows –
 
   - Repeat until you run through the entire sequence of candidates.
 
+The end result is that you will have just a single box – the very best one – for each object in the image.
+
 ![](./img/nms4.PNG)
 
 Non-Maximum Suppression is quite crucial for obtaining quality detections.
@@ -589,7 +593,7 @@ They are meant to provide some context, but **details are best understood direct
 
 ### Dataset
 
-We will use Pascal Visual Object Classes (VOC) data from 2007 and 2012.
+We will use Pascal Visual Object Classes (VOC) data from the years 2007 and 2012.
 
 #### Description
 
@@ -599,7 +603,7 @@ This data contains images with twenty different types of objects.
 {'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor'}
 ```
 
-Naturally, each image can contain one or more ground truth objects.
+Each image can contain one or more ground truth objects.
 
 Each object is represented by –
 
@@ -631,7 +635,7 @@ We will need three inputs.
 
 Since we're using the SSD300 variant, the images would need to be sized at `300, 300` pixels and in the RGB format.
 
-Remember, we're using a VGG-16 base pretrained on ImageNet that is available in PyTorch's `torchvision` module. [This page](https://pytorch.org/docs/master/torchvision/models.html) details the preprocessing or transformation we would need to perform in order to use this model – pixel values must be in the range [0,1] and we must then normalize the image by the mean and standard deviation of the ImageNet images' RGB channels.
+Remember, we're using a VGG-16 base pretrained on ImageNet that is already available in PyTorch's `torchvision` module. [This page](https://pytorch.org/docs/master/torchvision/models.html) details the preprocessing or transformation we would need to perform in order to use this model – pixel values must be in the range [0,1] and we must then normalize the image by the mean and standard deviation of the ImageNet images' RGB channels.
 
 ```python
 mean = [0.485, 0.456, 0.406]
@@ -674,7 +678,7 @@ This parses the data downloaded and saves the following files –
 
 - A **JSON file for each split with a list of `I` dictionaries containing ground truth objects, i.e. bounding boxes in absolute boundary coordinates, their encoded labels, and perceived detection difficulties**. The `i`th dictionary in this list will contain the objects present in the `i`th image in the previous JSON file.
 
-- A **JSON file which contains the `label_map`**, the label-to-index dictionary with which the labels are encoded in the previous JSON file. This is also available in [`utils.py`](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/utils.py) and directly importable.
+- A **JSON file which contains the `label_map`**, the label-to-index dictionary with which the labels are encoded in the previous JSON file. This dictionary is also available in [`utils.py`](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/utils.py) and directly importable.
 
 #### PyTorch Dataset
 
@@ -682,7 +686,7 @@ See `PascalVOCDataset` in [`datasets.py`](https://github.com/sgrvinod/a-PyTorch-
 
 This is a subclass of PyTorch [`Dataset`](https://pytorch.org/docs/master/data.html#torch.utils.data.Dataset), used to **define our training and test datasets.** It needs a `__len__` method defined, which returns the size of the dataset, and a `__getitem__` method which returns the `i`th image, bounding boxes of the objects in this image, and labels for the objects in this image, using the JSON files we saved earlier.
 
-You will notice that it also returns the perceived detection difficulties of each of these objects, but these are not actually used in training the model. They are required only in the [Evaluation](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#evaluation) stage for computing the Mean Average Precision (mAP) metric. We also have the option of filtering out _difficult_ objects entirely from our data to speed up training.
+You will notice that it also returns the perceived detection difficulties of each of these objects, but these are not actually used in training the model. They are required only in the [Evaluation](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#evaluation) stage for computing the Mean Average Precision (mAP) metric. We also have the option of filtering out _difficult_ objects entirely from our data to speed up training at the cost of some accuracy.
 
 Additionally, inside this class, **each image and the objects in them are subject to a slew of transformations** as described in the paper and outlined below.
 
@@ -702,7 +706,7 @@ This function applies the following transformations to the images and the object
 
 - **Resize** the image to `300, 300` pixels. This is a requirement of the SSD300.
 
-- Convert all boxes from **absolute to fractional boundary coordinates.** At all stages in our model, all boundary and center-size coordinates will be in fractional form.
+- Convert all boxes from **absolute to fractional boundary coordinates.** At all stages in our model, all boundary and center-size coordinates will be in their fractional forms.
 
 - **Normalize** the image with the mean and standard deviation of the ImageNet data that was used to pretrain our VGG base.
 
@@ -712,9 +716,9 @@ As mentioned in the paper, these transformations play a crucial role in obtainin
 
 The `Dataset` described above, `PascalVOCDataset`, will be used by a PyTorch [`DataLoader`](https://pytorch.org/docs/master/data.html#torch.utils.data.DataLoader) in `train.py` to **create and feed batches of data to the model** for training or validation.
 
-Since the number of objects vary across different images, the bounding boxes, labels, and difficulties cannot simply be stacked together in the batch. There would be no way of knowing which objects belong to which image.
+Since the number of objects vary across different images, their bounding boxes, labels, and difficulties cannot simply be stacked together in the batch. There would be no way of knowing which objects belong to which image.
 
-Instead, we need to **pass a collating function to the `collate_fn` argument**, which instructs the `DataLoader` about how it should combine these varying size tensors. As mentioned earlier, we will use lists.
+Instead, we need to **pass a collating function to the `collate_fn` argument**, which instructs the `DataLoader` about how it should combine these varying size tensors. The simplest option would be to use Python lists.
 
 ### Base Convolutions
 
@@ -744,7 +748,7 @@ Here, we **create and apply localization and class prediction convolutions** to 
 
 These layers are initialized in a manner similar to the auxiliary convolutions.
 
-Reshape the resulting _prediction maps_ and stack them as discussed. Note that reshaping in PyTorch is only possible if the original tensor is stored in a [contiguous](https://pytorch.org/docs/stable/tensors.html#torch.Tensor.contiguous) chunk of memory.
+We also **reshape the resulting prediction maps and stack them** as discussed. Note that reshaping in PyTorch is only possible if the original tensor is stored in a [contiguous](https://pytorch.org/docs/stable/tensors.html#torch.Tensor.contiguous) chunk of memory.
 
 As expected, the stacked localization and class predictions will be of dimensions `8732, 4` and `8732, 21` respectively.
 
@@ -754,7 +758,7 @@ See `SSD300` in [`model.py`](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-O
 
 Here, the **base, auxiliary, and prediction convolutions are combined** to form the SSD.
 
-There is a small detail here – the lowest level features, i.e. those from `conv4_3`, are expected to be on a significantly different numerical scale compared to its higher-level counterparts. Therefore, the authors recommend to normalize _each_ of its channels by L2-normalizing it and then rescaling by a learnable value.
+There is a small detail here – the lowest level features, i.e. those from `conv4_3`, are expected to be on a significantly different numerical scale compared to its higher-level counterparts. Therefore, the authors recommend L2-normalizing and then rescaling _each_ of its channels by a learnable value.
 
 ### Priors
 
@@ -770,7 +774,7 @@ See `MultiBoxLoss` in [`model.py`](https://github.com/sgrvinod/a-PyTorch-Tutoria
 
 Two empty tensors are created to store localization and class prediction targets, i.e. _ground truths_, for the 8732 predicted boxes in each image.
 
-We **find the ground truth object with the maximum Jaccard overlap for each prior**, stored in `object_for_each_prior`.
+We **find the ground truth object with the maximum Jaccard overlap for each prior**, which is stored in `object_for_each_prior`.
 
 We want to avoid the rare situation where not all of the ground truth objects have been matched. Therefore, we also **find the prior with the maximum overlap for each ground truth object**, stored in `prior_for_each_object`. We explicitly add these matches to `object_for_each_prior` and artificially set their overlaps to a value above the threshold so they are not eliminated.
 
@@ -806,11 +810,11 @@ In the paper, they recommend using **Stochastic Gradient Descent** in batches of
 
 I ended up using a batch size of `8` images for increased stability. If you find that your gradients are exploding, you could reduce the batch size, like I did, or clip gradients.
 
-The authors also doubled the learning rate for bias parameters. As you can see in the code, this is easy do in PyTorch, by passing [separate groups of parameters](https://pytorch.org/docs/stable/optim.html#per-parameter-options) to the `params` argument of its [SGD optimizer](https://pytorch.org/docs/stable/optim.html#torch.optim.SGD).
+The authors also doubled the learning rate for _bias_ parameters. As you can see in the code, this is easy do in PyTorch, by passing [separate groups of parameters](https://pytorch.org/docs/stable/optim.html#per-parameter-options) to the `params` argument of its [SGD optimizer](https://pytorch.org/docs/stable/optim.html#torch.optim.SGD).
 
 The paper recommends training for 80000 iterations at the initial learning rate. Then, it is decayed by 90% for an additional 20000 iterations, _twice_. With the paper's batch size of `32`, this means that the learning rate is decayed by 90% once at the 155th epoch and once more at the 194th epoch, and training is stopped at 232 epochs.
 
-In practice, I just decayed the learning rate by 90% when validation loss stopped improving for long periods. I resumed training at this reduced learning rate from the best checkpoint obtained thus far, not the most recent.
+In practice, I just decayed the learning rate by 90% when the validation loss stopped improving for long periods. I resumed training at this reduced learning rate from the _best_ checkpoint obtained thus far, not the most recent.
 
 On a TitanX (Pascal), each epoch of training required about 6 minutes. My best checkpoint was from epoch 186, with a validation loss of `2.515`.
 
@@ -826,7 +830,7 @@ See [`eval.py`](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detecti
 
 The data-loading and checkpoint parameters for evaluating the model are at the beginning of the file, so you can easily check or modify them should you wish to.
 
-To begin evaluation, simply run the `evaluate()` function with the data-loader and model checkpoint. **Raw predictions for each image in the test set are obtained and parsed** with the checkpoint's `detect_objects()` method, [explained here](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#processing-predictions). Evaluation has to be done at a `min_score` of `0.01`, an NMS `max_overlap` of `0.45`, and `top_k` of `200` to allow fair comparision of results with the paper and other implementations.
+To begin evaluation, simply run the `evaluate()` function with the data-loader and model checkpoint. **Raw predictions for each image in the test set are obtained and parsed** with the checkpoint's `detect_objects()` method, which implements [this process](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#processing-predictions). Evaluation has to be done at a `min_score` of `0.01`, an NMS `max_overlap` of `0.45`, and `top_k` of `200` to allow fair comparision of results with the paper and other implementations.
 
 **Parsed predictions are evaluated against the ground truth objects.** The evaluation metric is the _Mean Average Precision (mAP)_. If you're not familiar with this metric, [here's a great explanation](https://medium.com/@jonathan_hui/map-mean-average-precision-for-object-detection-45c121a31173).
 
