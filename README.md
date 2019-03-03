@@ -1,6 +1,6 @@
 This is a **[PyTorch](https://pytorch.org) Tutorial to Object Detection**.
 
-This is the third in [a series of tutorials](https://github.com/sgrvinod/Deep-Tutorials-for-PyTorch) I plan to write about _implementing_ cool models on your own with the amazing PyTorch library.
+This is the third in [a series of tutorials](https://github.com/sgrvinod/Deep-Tutorials-for-PyTorch) I'm writing about _implementing_ cool models on your own with the amazing PyTorch library.
 
 Basic knowledge of PyTorch, convolutional neural networks is assumed.
 
@@ -98,7 +98,7 @@ There are more examples at the [end of the tutorial](https://github.com/sgrvinod
 
 * **Object Detection**. duh.
 
-* **Single-Shot Detection**. Earlier architectures for object detection consisted of two distinct stages – a region proposal network that performs object localization and a classifier for detecting the types of objects in the proposed regions. Computationally, these can be very expensive and therefore ill-suited for real-word, real-time applications. Single-shot models encapsulate both localization and detection tasks in a single forward sweep of the network, resulting in significantly faster detections while deployable on lighter hardware.
+* **Single-Shot Detection**. Earlier architectures for object detection consisted of two distinct stages – a region proposal network that performs object localization and a classifier for detecting the types of objects in the proposed regions. Computationally, these can be very expensive and therefore ill-suited for real-world, real-time applications. Single-shot models encapsulate both localization and detection tasks in a single forward sweep of the network, resulting in significantly faster detections while deployable on lighter hardware.
 
 * **Multiscale Feature Maps**. In image classification tasks, we base our predictions on the final convolutional feature map – the smallest but deepest representation of the original image. In object detection, feature maps from intermediate convolutional layers can also be _directly_ useful because they represent the original image at different scales. Therefore, a fixed-size filter operating on different feature maps will be able to detect objects of various sizes.
 
@@ -115,8 +115,6 @@ There are more examples at the [end of the tutorial](https://github.com/sgrvinod
 In this section, I will present an overview of this model. If you're already familiar with it, you can skip straight to the [Implementation](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#implementation) section or the commented code.
 
 As we proceed, you will notice that there's a fair bit of engineering that's resulted in the SSD's very specific structure and formulation. Don't worry if some aspects of it seem contrived or unspontaneous at first. Remember, it's built upon _years_ of (often empirical) research in this field.
-
-I, for my part, hope I've been able to distill a moderately complex [paper](https://arxiv.org/abs/1512.02325) into a reasonably easy-to-understand tutorial.
 
 ### Some definitions
 
