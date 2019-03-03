@@ -38,8 +38,6 @@ I'm using `PyTorch 0.4` in `Python 3.6`.
 
 We will be implementing the [Single Shot Multibox Detector (SSD)](https://arxiv.org/abs/1512.02325), a popular, powerful, and especially nimble network for this task. The authors' original implementation can be found [here](https://github.com/weiliu89/caffe/tree/ssd).
 
----
-
 Here are some examples of object detection in images not seen during training –
 
 ---
@@ -401,13 +399,13 @@ If you **choose a tile, _any_ tile, in the localization predictions and expand i
 
 ![](./img/predconv3.jpg)
 
-Voilà! The channel values at each position of the localization predictions represent the encoded offsets with respect to the priors at the position.
+Voilà! The channel values at each position of the localization predictions represent the encoded offsets with respect to the priors at that position.
 
 Now, **do the same with the class predictions.** Assume `n_classes = 3`.
 
 ![](./img/predconv4.jpg)
 
-You can see that the class scores for each prior can be grouped in sets of three.
+Similar to before, these channels represent the class scores for the priors at that position.
 
 Now that we understand what the predictions for the feature map from `conv9_2` look like, we can **reshape them into a more amenable form.**
 
@@ -810,11 +808,11 @@ In the paper, they recommend using **Stochastic Gradient Descent** in batches of
 
 I ended up using a batch size of `8` images for increased stability. If you find that your gradients are exploding, you could reduce the batch size, like I did, or clip gradients.
 
-The authors also doubled the learning rate for _bias_ parameters. As you can see in the code, this is easy do in PyTorch, by passing [separate groups of parameters](https://pytorch.org/docs/stable/optim.html#per-parameter-options) to the `params` argument of its [SGD optimizer](https://pytorch.org/docs/stable/optim.html#torch.optim.SGD).
+The authors also doubled the learning rate for bias parameters. As you can see in the code, this is easy do in PyTorch, by passing [separate groups of parameters](https://pytorch.org/docs/stable/optim.html#per-parameter-options) to the `params` argument of its [SGD optimizer](https://pytorch.org/docs/stable/optim.html#torch.optim.SGD).
 
 The paper recommends training for 80000 iterations at the initial learning rate. Then, it is decayed by 90% for an additional 20000 iterations, _twice_. With the paper's batch size of `32`, this means that the learning rate is decayed by 90% once at the 155th epoch and once more at the 194th epoch, and training is stopped at 232 epochs.
 
-In practice, I just decayed the learning rate by 90% when the validation loss stopped improving for long periods. I resumed training at this reduced learning rate from the _best_ checkpoint obtained thus far, not the most recent.
+In practice, I just decayed the learning rate by 90% when the validation loss stopped improving for long periods. I resumed training at this reduced learning rate from the best checkpoint obtained thus far, not the most recent.
 
 On a TitanX (Pascal), each epoch of training required about 6 minutes. My best checkpoint was from epoch 186, with a validation loss of `2.515`.
 
