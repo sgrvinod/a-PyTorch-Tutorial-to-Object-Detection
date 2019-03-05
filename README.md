@@ -155,7 +155,7 @@ The Jaccard Index or Jaccard Overlap or Intersection-over-Union (IoU) measure th
 
 An IoU of `1` implies they are the _same_ box, while a value of `0` indicates they're mutually exclusive spaces.
 
-It's a simple metric, but – as you will discover – also one that finds many applications in our model.
+It's a simple metric, but also one that finds many applications in our model.
 
 ### Multibox
 
