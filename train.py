@@ -82,8 +82,8 @@ def main():
     # Epochs
     for epoch in range(start_epoch, epochs):
         # Paper describes decaying the learning rate at the 80000th, 100000th, 120000th 'iteration', i.e. model update or batch
-        # The paper uses a batch size of 32 (regardless of what we use), which means there are about 517 iterations in an epoch
-        # Therefore, you could do,
+        # The paper uses a batch size of 32, which means there were about 517 iterations in an epoch
+        # Therefore, to find the epochs to decay at, you could do,
         # if epoch in {80000 // 517, 100000 // 517, 120000 // 517}:
         #     adjust_learning_rate(optimizer, 0.1)
 
