@@ -541,9 +541,9 @@ For instance, consider the image below.
 
 There's clearly only three objects in it – two dogs and a cat. But according to the model, there are _three_ dogs and _two_ cats.
 
-Mind you, this is just a mild example. It could really be much, _much_ worse.
+Mind you, this is just a mild example. It could really be much, much worse.
 
-Now, to you, it may be obvious _which_ boxes are referring to the same object. This is because your mind can process that certain boxes coincide significantly with each other and a specific object.
+Now, to you, it may be obvious which boxes are referring to the same object. This is because your mind can process that certain boxes coincide significantly with each other and a specific object.
 
 In practice, how would this be done?
 
@@ -553,7 +553,7 @@ First, **line up the candidates for each class in terms of how _likely_ they are
 
 We've sorted them by their scores.
 
-The next step is to find _which_ candidates are redundant. We already have a tool at our disposal to judge how much two boxes have in common with each other – the Jaccard overlap.
+The next step is to find which candidates are redundant. We already have a tool at our disposal to judge how much two boxes have in common with each other – the Jaccard overlap.
 
 So, if we were to **draw up the Jaccard similarities between all the candidates in a given class**, we could evaluate each pair and **if found to overlap significantly, keep only the _more likely_ candidate**.
 
@@ -992,6 +992,6 @@ Redundant detections aren't really a problem since we're NMS-ing the hell out of
 
 ---
 
-__Sorry, but I gotta ask... _[what's in the boooox?!](http://i.imgur.com/QHb4Yg0.gif)___
+__Sorry, but I gotta ask... _[what's in the boooox?!](https://cnet4.cbsistatic.com/img/cLD5YVGT9pFqx61TuMtcSBtDPyY=/570x0/2017/01/14/6d8103f7-a52d-46de-98d0-56d0e9d79804/se7en.png)___
 
 Ha.
