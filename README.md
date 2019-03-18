@@ -465,7 +465,7 @@ Let's reproduce this logic with an example.
 
 ![](./img/matching1.PNG)
 
-For convenience, we will assume there are just _seven_ priors, shown in red. The ground truths are in yellow – there are three actual objects in this image.
+For convenience, we will assume there are just seven priors, shown in red. The ground truths are in yellow – there are three actual objects in this image.
 
 Following the steps outlined earlier will yield the following matches –
 
@@ -581,7 +581,7 @@ The end result is that you will have just a single box – the very best one –
 
 Non-Maximum Suppression is quite crucial for obtaining quality detections.
 
-Happily, it's also the _final_ step.
+Happily, it's also the final step.
 
 # Implementation
 
