@@ -479,7 +479,7 @@ class SSD300(nn.Module):
 
                 # Non-Maximum Suppression (NMS)
 
-                # pytorch 1.2
+                # For pytorch version 1.2
                 if '1.2' in torch.__version__:
                     # A torch.uint8 (byte) tensor to keep track of which predicted boxes to suppress
                     # 1 implies suppress, 0 implies don't suppress
@@ -504,7 +504,7 @@ class SSD300(nn.Module):
                     image_labels.append(torch.LongTensor((~suppress).sum().item() * [c]).to(device))
                     image_scores.append(class_scores[~suppress])
 
-                # pytorch 0.4
+                # For pytorch version 0.4
                 else:
                     # A torch.uint8 (byte) tensor to keep track of which predicted boxes to suppress
                     # 1 implies suppress, 0 implies don't suppress
