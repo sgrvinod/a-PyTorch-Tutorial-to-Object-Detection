@@ -565,7 +565,7 @@ This process is called __Non-Maximum Suppression (NMS)__ because when multiple c
 
 Algorithmically, it is carried out as follows –
 
-- Upon selecting candidades for each _non-background_ class,
+- Upon selecting candidates for each _non-background_ class,
 
   - Arrange candidates for this class in order of decreasing likelihood.
 
