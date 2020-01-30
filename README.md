@@ -10,6 +10,12 @@ Questions, suggestions, or corrections can be posted as issues.
 
 I'm using `PyTorch 0.4` in `Python 3.6`.
 
+---
+
+**27 Jan 2020**: Working code for two new tutorials has been added — [Super-Resolution](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Super-Resolution) and [Machine Translation](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Machine-Translation)
+
+---
+
 # Contents
 
 [***Objective***](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#objective)
