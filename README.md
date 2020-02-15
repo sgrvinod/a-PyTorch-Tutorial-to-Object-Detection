@@ -820,7 +820,7 @@ On a TitanX (Pascal), each epoch of training required about 6 minutes.
 
 ### Model checkpoint
 
-You can download this pretrained model [here](https://drive.google.com/file/d/1YZp2PUR1NYKPlBIVoVRO0Tg1ECDmrnC3/view?usp=sharing).
+You can download this pretrained model [here](https://drive.google.com/open?id=1bvJfF6r_zYl2xZEpYXxgb7jLQHFZ01Qe).
 
 Note that this checkpoint should be [loaded directly with PyTorch](https://pytorch.org/docs/stable/torch.html?#torch.load) for evaluation or inference – see below.
 
