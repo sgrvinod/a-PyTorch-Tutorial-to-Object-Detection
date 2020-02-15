@@ -621,7 +621,7 @@ Specfically, you will need to download the following VOC datasets –
 
 - [2007 _test_](http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar) (451MB)
 
-Consistent with the paper, the two _trainval_ datasets are to be used for training, while the VOC 2007 _test_ will serve as our validation and testing data.  
+Consistent with the paper, the two _trainval_ datasets are to be used for training, while the VOC 2007 _test_ will serve as our test data.  
 
 Make sure you extract both the VOC 2007 _trainval_ and 2007 _test_ data to the same location, i.e. merge them.
 
@@ -712,7 +712,7 @@ As mentioned in the paper, these transformations play a crucial role in obtainin
 
 #### PyTorch DataLoader
 
-The `Dataset` described above, `PascalVOCDataset`, will be used by a PyTorch [`DataLoader`](https://pytorch.org/docs/master/data.html#torch.utils.data.DataLoader) in `train.py` to **create and feed batches of data to the model** for training or validation.
+The `Dataset` described above, `PascalVOCDataset`, will be used by a PyTorch [`DataLoader`](https://pytorch.org/docs/master/data.html#torch.utils.data.DataLoader) in `train.py` to **create and feed batches of data to the model** for training or evaluation.
 
 Since the number of objects vary across different images, their bounding boxes, labels, and difficulties cannot simply be stacked together in the batch. There would be no way of knowing which objects belong to which image.
 
@@ -788,7 +788,7 @@ The **Multibox Loss is the aggregate of these two losses**, combined in the rati
 
 # Training
 
-Before you begin, make sure to save the required data files for training and validation. To do this, run the contents of [`create_data_lists.py`](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/create_data_lists.py) after pointing it to the `VOC2007` and `VOC2012` folders in your [downloaded data](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#download).
+Before you begin, make sure to save the required data files for training and evaluation. To do this, run the contents of [`create_data_lists.py`](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/create_data_lists.py) after pointing it to the `VOC2007` and `VOC2012` folders in your [downloaded data](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#download).
 
 See [`train.py`](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/train.py).
 
@@ -800,8 +800,6 @@ To **train your model from scratch**, run this file –
 
 To **resume training at a checkpoint**, point to the corresponding file with the `checkpoint` parameter at the beginning of the code.
 
-Note that we perform validation at the end of every training epoch.
-
 ### Remarks
 
 In the paper, they recommend using **Stochastic Gradient Descent** in batches of `32` images, with an initial learning rate of `1e−3`, momentum of `0.9`, and `5e-4` weight decay.
@@ -810,11 +808,9 @@ I ended up using a batch size of `8` images for increased stability. If you find
 
 The authors also doubled the learning rate for bias parameters. As you can see in the code, this is easy do in PyTorch, by passing [separate groups of parameters](https://pytorch.org/docs/stable/optim.html#per-parameter-options) to the `params` argument of its [SGD optimizer](https://pytorch.org/docs/stable/optim.html#torch.optim.SGD).
 
-The paper recommends training for 80000 iterations at the initial learning rate. Then, it is decayed by 90% for an additional 20000 iterations, _twice_. With the paper's batch size of `32`, this means that the learning rate is decayed by 90% once at the 155th epoch and once more at the 194th epoch, and training is stopped at 232 epochs.
+The paper recommends training for 80000 iterations at the initial learning rate. Then, it is decayed by 90% (i.e. to a tenth) for an additional 20000 iterations, _twice_. With the paper's batch size of `32`, this means that the learning rate is decayed by 90% once at the 155th epoch and once more at the 194th epoch, and training is stopped at 232 epochs. I followed the same schedule.
 
-In practice, I just decayed the learning rate by 90% when the validation loss stopped improving for long periods. I resumed training at this reduced learning rate from the best checkpoint obtained thus far, not the most recent.
-
-On a TitanX (Pascal), each epoch of training required about 6 minutes. My best checkpoint was from epoch 186, with a validation loss of `2.515`.
+On a TitanX (Pascal), each epoch of training required about 6 minutes.
 
 ### Model checkpoint
 
@@ -834,32 +830,32 @@ To begin evaluation, simply run the `evaluate()` function with the data-loader a
 
 We will use `calculate_mAP()` in [`utils.py`](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/utils.py) for this purpose. As is the norm, we will ignore _difficult_ detections in the mAP calculation. But nevertheless, it is important to include them from the evaluation dataset because if the model does detect an object that is considered to be _difficult_, it must not be counted as a false positive.
 
-The model scores **77.1 mAP**, against the 77.2 mAP reported in the paper.
+The model scores **77.2 mAP**, same as the result reported in the paper.
 
-Class-wise average precisions are listed below.
+Class-wise average precisions (not scaled to 100) are listed below.
 
 | Class | Average Precision |
 | :-----: | :------: |
-| aeroplane |  78.9|
-|  bicycle | 83.7|
-|  bird |  76.9|
-|  boat |  72.0|
-|  bottle |  46.0|
-|  bus |  86.7|
-|  car |  86.9|
-|  cat |  89.2|
-|  chair |  59.6|
-|  cow |  82.7|
-|  diningtable |  75.2|
-|  dog |  85.6|
-|  horse |  87.4|
-|  motorbike |  82.9|
-|  person |  78.8|
-|  pottedplant |  50.3|
-|  sheep |  78.7|
-|  sofa |  80.5|
-|  train |  85.7|
-|  tvmonitor |  75.0|
+| _aeroplane_ | 0.7887580990791321 |
+| _bicycle_ | 0.8351995348930359 |
+| _bird_ | 0.7623348236083984 |
+| _boat_ | 0.7218425273895264 |
+| _bottle_ | 0.45978495478630066 |
+| _bus_ | 0.8705356121063232 |
+| _car_ | 0.8655831217765808 |
+| _cat_ | 0.8828985095024109 |
+| _chair_ | 0.5917483568191528 |
+| _cow_ | 0.8255912661552429 |
+| _diningtable_ | 0.756867527961731 |
+| _dog_ | 0.856262743473053 |
+| _horse_ | 0.8778411149978638 |
+| _motorbike_ | 0.8316892385482788 |
+| _person_ | 0.7884440422058105 |
+| _pottedplant_ | 0.5071538090705872 |
+| _sheep_ | 0.7936667799949646 |
+| _sofa_ | 0.7998116612434387 |
+| _train_ | 0.8655905723571777 |
+| _tvmonitor_ | 0.7492395043373108 |
 
 You can see that some objects, like bottles and potted plants, are considerably harder to detect than others.
 
