@@ -10,6 +10,12 @@ Questions, suggestions, or corrections can be posted as issues.
 
 I'm using `PyTorch 0.4` in `Python 3.6`.
 
+---
+
+**27 Jan 2020**: Working code for two new tutorials has been added — [Super-Resolution](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Super-Resolution) and [Machine Translation](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Machine-Translation)
+
+---
+
 # Contents
 
 [***Objective***](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection#objective)
@@ -255,7 +261,7 @@ To remedy this, the authors opt to **reduce both their number and the size of ea
 
 - `conv6` will use `1024` filters, each with dimensions `3, 3, 512`. Therefore, the parameters are subsampled from `4096, 7, 7, 512` to `1024, 3, 3, 512`.
 
-- `conv6` will use `1024` filters, each with dimensions `1, 1, 1024`. Therefore, the parameters are subsampled from `4096, 1, 1, 4096` to `1024, 1, 1, 1024`.
+- `conv7` will use `1024` filters, each with dimensions `1, 1, 1024`. Therefore, the parameters are subsampled from `4096, 1, 1, 4096` to `1024, 1, 1, 1024`.
 
 Based on the references in the paper, we will **subsample by picking every `m`th parameter along a particular dimension**, in a process known as [_decimation_](https://en.wikipedia.org/wiki/Downsampling_(signal_processing)).  
 
@@ -565,7 +571,7 @@ This process is called __Non-Maximum Suppression (NMS)__ because when multiple c
 
 Algorithmically, it is carried out as follows –
 
-- Upon selecting candidades for each _non-background_ class,
+- Upon selecting candidates for each _non-background_ class,
 
   - Arrange candidates for this class in order of decreasing likelihood.
 
