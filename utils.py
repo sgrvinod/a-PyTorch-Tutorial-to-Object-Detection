@@ -74,7 +74,7 @@ def create_data_lists(voc07_path, voc12_path, output_folder):
         for id in ids:
             # Parse annotation's XML file
             objects = parse_annotation(os.path.join(path, 'Annotations', id + '.xml'))
-            if len(objects) == 0:
+            if len(objects['boxes']) == 0:
                 continue
             n_objects += len(objects)
             train_objects.append(objects)
