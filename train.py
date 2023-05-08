@@ -3,7 +3,8 @@ import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
 from model import SSD300, MultiBoxLoss
-from datasets import PascalVOCDataset
+from datasets import SerengetiBBoxDataset, BBoxRandomCrop, BBoxRandomHorizontalFlip, BBoxResize, BBoxToFractional
+import torch
 from utils import *
 
 # Data parameters
@@ -65,11 +66,9 @@ def main():
     criterion = MultiBoxLoss(priors_cxcy=model.priors_cxcy).to(device)
 
     # Custom dataloaders
-    train_dataset = PascalVOCDataset(data_folder,
-                                     split='train',
-                                     keep_difficult=keep_difficult)
+    train_dataset = get_train_val_datasets()
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
-                                               collate_fn=train_dataset.collate_fn, num_workers=workers,
+                                               collate_fn=train_dataset.dataset.collate_fn, num_workers=workers,
                                                pin_memory=True)  # note that we're passing the collate function here
 
     # Calculate total number of epochs to train and the epochs to decay learning rate at (i.e. convert iterations to epochs)
@@ -94,6 +93,48 @@ def main():
 
         # Save checkpoint
         save_checkpoint(epoch, model, optimizer)
+
+
+def get_train_val_datasets(seasons=None):
+    # File Paths
+    root = 'snapshotserengeti-unzipped/'
+    annotations_directory = "./dataset"
+    images_path = annotations_directory + "/SS_bbox_images.csv"
+    classes_path = annotations_directory + "/SS_Label_Classes.json"
+    boxes_path = annotations_directory + "/SS_BBoxes.json"
+
+    # Whole dataset
+    dataset = SerengetiBBoxDataset(root, images_path, boxes_path, classes_path, seasons=seasons)
+
+    # Split data into train and validation sets
+    train_split = 0.7
+    n_train = int(len(dataset) * train_split)
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset, (n_train, len(dataset)-n_train),)
+    
+    # Train transform
+    train_transform = v2.Compose([
+        BBoxToFractional(),
+        BBoxRandomHorizontalFlip(),
+        BBoxRandomCrop((0.7,1.0), (0.9,1.1)),
+        BBoxResize((300, 300)),
+        v2.ColorJitter(brightness=0.1, contrast=0.05),
+        v2.Compose([v2.ToImageTensor(), v2.ConvertImageDtype()]),
+        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+
+    val_transform = v2.Compose([
+        BBoxToFractional(),
+        BBoxResize((300, 300)),
+        v2.ToTensor(),
+        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+
+    # Apply train transformations
+    train_dataset.dataset = copy(dataset)
+    train_dataset.dataset.transform = train_transform
+    val_dataset.dataset.transform = val_transform
+
+    return train_dataset, val_dataset
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
