@@ -8,7 +8,7 @@ import torch
 from utils import *
 
 # Data parameters
-data_folder = './'  # folder with data files
+data_folder = './SSDataset'  # folder with data files
 keep_difficult = True  # use objects considered difficult to detect?
 
 # Model parameters
@@ -94,49 +94,6 @@ def main():
         # Save checkpoint
         save_checkpoint(epoch, model, optimizer)
 
-
-def get_train_val_datasets(seasons=None):
-    # File Paths
-    root = 'snapshotserengeti-unzipped/'
-    annotations_directory = "./dataset"
-    images_path = annotations_directory + "/SS_bbox_images.csv"
-    classes_path = annotations_directory + "/SS_Label_Classes.json"
-    boxes_path = annotations_directory + "/SS_BBoxes.json"
-
-    # Whole dataset
-    dataset = SerengetiBBoxDataset(root, images_path, boxes_path, classes_path, seasons=seasons)
-
-    # Split data into train and validation sets
-    train_split = 0.7
-    n_train = int(len(dataset) * train_split)
-    train_dataset, val_dataset = torch.utils.data.random_split(dataset, (n_train, len(dataset)-n_train),)
-    
-    # Train transform
-    train_transform = v2.Compose([
-        BBoxToFractional(),
-        BBoxRandomHorizontalFlip(),
-        BBoxRandomCrop((0.7,1.0), (0.9,1.1)),
-        BBoxResize((300, 300)),
-        v2.ColorJitter(brightness=0.1, contrast=0.05),
-        v2.Compose([v2.ToImageTensor(), v2.ConvertImageDtype()]),
-        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-
-    val_transform = v2.Compose([
-        BBoxToFractional(),
-        BBoxResize((300, 300)),
-        v2.ToTensor(),
-        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-
-    # Apply train transformations
-    train_dataset.dataset = copy(dataset)
-    train_dataset.dataset.transform = train_transform
-    val_dataset.dataset.transform = val_transform
-
-    return train_dataset, val_dataset
-
-
 def train(train_loader, model, criterion, optimizer, epoch):
     """
     One epoch's training.
@@ -195,6 +152,45 @@ def train(train_loader, model, criterion, optimizer, epoch):
                                                                   batch_time=batch_time,
                                                                   data_time=data_time, loss=losses))
     del predicted_locs, predicted_scores, images, boxes, labels  # free some memory since their histories may be stored
+
+def get_dataset_params():
+    image_folder = '../PRBX/snapshot-serengeti'
+    images_df = pd.read_csv('../DataPipeline/bbox_images.csv')
+    annotations_df = pd.read_csv('../DataPipeline/bbox_annotations.csv')
+    classes_df = pd.read_csv('../DataPipeline/classes.csv')
+
+    return image_folder, images_df, annotations_df, classes_df
+
+def get_train_val_datasets():
+    params = get_dataset_params()
+    dataset = SerengetiBBoxDataset(*params)
+
+    train_split = 0.7
+    n_train = int(len(dataset) * train_split)
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset, (n_train, len(dataset)-n_train),)
+    
+    train_transform = v2.Compose([
+        BBoxToFractional(),
+        BBoxRandomHorizontalFlip(),
+        BBoxRandomCrop((0.7,1.0), (0.9,1.1)),
+        BBoxResize((300, 300)),
+        v2.ColorJitter(brightness=0.1, contrast=0.05),
+        v2.Compose([v2.ToImageTensor(), v2.ConvertImageDtype()]),
+        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+
+    val_transform = v2.Compose([
+        BBoxToFractional(),
+        BBoxResize((300, 300)),
+        v2.Compose([v2.ToImageTensor(), v2.ConvertImageDtype()]),
+        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+
+    train_dataset.dataset = copy(dataset)
+    train_dataset.dataset.transform = train_transform
+    val_dataset.dataset.transform = val_transform
+
+    return train_dataset, val_dataset
 
 
 if __name__ == '__main__':
