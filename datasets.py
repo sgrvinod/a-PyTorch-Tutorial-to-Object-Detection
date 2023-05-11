@@ -5,7 +5,7 @@ import pandas as pd
 from PIL import Image
 from ast import literal_eval
 
-class SerengetiBBoxDataset(Dataset):
+class SerengetiDataset(Dataset):
     """
     A PyTorch Dataset class to be used in a PyTorch DataLoader to create batches.
     """
@@ -16,8 +16,8 @@ class SerengetiBBoxDataset(Dataset):
         self.classes_df = classes_df
         self.transform = transform
 
-        self.bboxes = {row['id']: [] for _, row in self.images_df.iterrows()}
-        for i, row in self.annotations_df.iterrows():
+        self.bboxes = {row['id']: [] for _, row in self.images_df.iterrows()} # 4909 images have no bounding boxes, filter these in df 
+        for i, row in self.annotations_df.iterrows():                         # images have been filtered, now boxes need to be filtered?
             self.bboxes[row['image_id']].append(i)
 
         self.annotations_df['bbox'] = self.annotations_df['bbox'].apply(literal_eval)
@@ -31,8 +31,9 @@ class SerengetiBBoxDataset(Dataset):
         box_idxs = self.bboxes[image_info['id']]
         boxes = torch.FloatTensor([self.annotations_df.iloc[i]['bbox'] for i in box_idxs])
 
-        species = image_info['question__species']
-        label = self.classes_df.loc[self.classes_df['name'] == species, 'id'].iloc[0]
+        species = image_info['question__species'].lower()
+        label_step = self.classes_df.loc[self.classes_df['name'] == species, 'id']
+        label = self.classes_df.loc[self.classes_df['name'] == species, 'id'].iloc[0] #####
         labels = torch.FloatTensor([label for _ in boxes])
         
         if self.transform:
@@ -57,19 +58,22 @@ class SerengetiBBoxDataset(Dataset):
 
         return images, boxes, labels  # tensor (N, 3, x, y), 3 lists of N tensors each
 
-def get_params():
+def get_dataset_params():
     image_folder = '../PRBX/snapshot-serengeti'
-    images_df = pd.read_csv('../DataPipeline/bbox_images.csv')
-    annotations_df = pd.read_csv('../DataPipeline/bbox_annotations.csv')
-    classes_df = pd.read_csv('../DataPipeline/classes.csv')
+    images_df = pd.read_csv('./snapshot-serengeti/bbox_images_non_empty_downloaded.csv')
+    annotations_df = pd.read_csv('./snapshot-serengeti/bbox_annotations_downloaded.csv')
+    classes_df = pd.read_csv('./snapshot-serengeti/classes.csv')
 
     return image_folder, images_df, annotations_df, classes_df
 
+from collections import Counter
 def main():
-    dataset = SerengetiBBoxDataset(*get_params())
+    dataset = SerengetiBBoxDataset(*get_dataset_params())
     print('Serengeti Dataset')
     print(f'num_items: {len(dataset)}')
-    print(f'item 0: {dataset[0]}')
+    print(f'item_0: {dataset[0]}')
+    c = Counter([len(boxes) for boxes in dataset.bboxes.values()])
+    print(f'boxes_per_img: {c}')
 
 if __name__ == '__main__':
     main()

@@ -1,11 +1,20 @@
 import time
+import pandas as pd
+from copy import copy
+import torch
 import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
-from model import SSD300, MultiBoxLoss
-from datasets import SerengetiBBoxDataset, BBoxRandomCrop, BBoxRandomHorizontalFlip, BBoxResize, BBoxToFractional
-import torch
+import torchvision.transforms.v2 as v2
+from torchvision import disable_beta_transforms_warning
+# from models.SSD300 import SSD300, MultiBoxLoss
+from models.EfficientNetSSD300 import EfficientNetSSD300, MultiBoxLoss
+from datasets import SerengetiDataset, get_dataset_params
+from transformations import BBoxRandomCrop, BBoxRandomHorizontalFlip, BBoxResize, BBoxToFractional
 from utils import *
+
+# Disable torchvision warnings
+disable_beta_transforms_warning()
 
 # Data parameters
 data_folder = './SSDataset'  # folder with data files
@@ -13,17 +22,24 @@ keep_difficult = True  # use objects considered difficult to detect?
 
 # Model parameters
 # Not too many here since the SSD300 has a very specific structure
-n_classes = len(label_map)  # number of different types of objects
+with open('snapshot-serengeti/classes.csv', 'r') as f:
+    classes = pd.read_csv(f)
+n_classes = len(classes)  # number of different types of objects
+
+label_map = {}
+for i, row in classes.iterrows():
+    label_map[i] = row['name']
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Learning parameters
 checkpoint = None  # path to model checkpoint, None if none
-batch_size = 8  # batch size
-iterations = 120000  # number of iterations to train
-workers = 4  # number of workers for loading data in the DataLoader
+batch_size = 32  # batch size
+iterations = 120_000  # number of iterations to train
+workers = 16 # number of workers for loading data in the DataLoader
 print_freq = 200  # print training status every __ batches
 lr = 1e-3  # learning rate
-decay_lr_at = [80000, 100000]  # decay learning rate after these many iterations
+decay_lr_at = [80_000, 100_000]  # decay learning rate after these many iterations
 decay_lr_to = 0.1  # decay learning rate to this fraction of the existing learning rate
 momentum = 0.9  # momentum
 weight_decay = 5e-4  # weight decay
@@ -31,17 +47,17 @@ grad_clip = None  # clip if gradients are exploding, which may happen at larger 
 
 cudnn.benchmark = True
 
-
 def main():
     """
     Training.
     """
+    disable_beta_transforms_warning()
     global start_epoch, label_map, epoch, checkpoint, decay_lr_at
 
     # Initialize model or load checkpoint
     if checkpoint is None:
         start_epoch = 0
-        model = SSD300(n_classes=n_classes)
+        model = EfficientNetSSD300(n_classes=n_classes)
         # Initialize the optimizer, with twice the default learning rate for biases, as in the original Caffe repo
         biases = list()
         not_biases = list()
@@ -63,19 +79,23 @@ def main():
 
     # Move to default device
     model = model.to(device)
-    criterion = MultiBoxLoss(priors_cxcy=model.priors_cxcy).to(device)
+    criterion = MultiBoxLoss(anchor_boxes=model.anchor_boxes).to(device)
+    print(f'\nLoaded model to {device}.')
 
     # Custom dataloaders
-    train_dataset = get_train_val_datasets()
+    train_dataset, _ = get_train_val_datasets()
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
                                                collate_fn=train_dataset.dataset.collate_fn, num_workers=workers,
                                                pin_memory=True)  # note that we're passing the collate function here
+    
+    print(f'Loaded dataset.')
+
 
     # Calculate total number of epochs to train and the epochs to decay learning rate at (i.e. convert iterations to epochs)
     # To convert iterations to epochs, divide iterations by the number of iterations per epoch
     # The paper trains for 120,000 iterations with a batch size of 32, decays after 80,000 and 100,000 iterations
-    epochs = iterations // (len(train_dataset) // 32)
-    decay_lr_at = [it // (len(train_dataset) // 32) for it in decay_lr_at]
+    epochs = iterations // (len(train_dataset) // batch_size)
+    decay_lr_at = [it // (len(train_dataset) // batch_size) for it in decay_lr_at]
 
     # Epochs
     for epoch in range(start_epoch, epochs):
@@ -113,7 +133,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
     start = time.time()
 
     # Batches
-    for i, (images, boxes, labels, _) in enumerate(train_loader):
+    print(f'Beginning epoch {epoch}.')
+    for i, (images, boxes, labels) in enumerate(train_loader):
         data_time.update(time.time() - start)
 
         # Move to default device
@@ -153,17 +174,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
                                                                   data_time=data_time, loss=losses))
     del predicted_locs, predicted_scores, images, boxes, labels  # free some memory since their histories may be stored
 
-def get_dataset_params():
-    image_folder = '../PRBX/snapshot-serengeti'
-    images_df = pd.read_csv('../DataPipeline/bbox_images.csv')
-    annotations_df = pd.read_csv('../DataPipeline/bbox_annotations.csv')
-    classes_df = pd.read_csv('../DataPipeline/classes.csv')
-
-    return image_folder, images_df, annotations_df, classes_df
-
 def get_train_val_datasets():
+    disable_beta_transforms_warning()
     params = get_dataset_params()
-    dataset = SerengetiBBoxDataset(*params)
+    dataset = SerengetiDataset(*params)
 
     train_split = 0.7
     n_train = int(len(dataset) * train_split)
