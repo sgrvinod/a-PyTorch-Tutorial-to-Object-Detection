@@ -24,18 +24,20 @@ class BBoxToFractional(object):
         return image, fractional_boxes, labels
 
 class BBoxRandomCrop(object):
-    def __init__(self, scale, ratio):
+    def __init__(self, scale, ratio, retry=5):
         assert isinstance(scale, tuple)
         self.scale = scale
         assert isinstance(ratio, tuple)
         self.ratio = ratio
+        assert isinstance(retry, int)
+        self.retry = retry
 
     def __call__(self, sample):
         success = False
         attempts = 0
         image, boxes, labels = copy(sample)
 
-        while not success and attempts < 20:
+        while not success and attempts < self.retry:
             # Randomly determine the scale and ratio of the crop
             scale = random.uniform(self.scale[0], self.scale[1])
             ratio = random.uniform(self.ratio[0], self.ratio[1])
@@ -65,10 +67,6 @@ class BBoxRandomCrop(object):
             right = min(w, left + cropped_w)
             bottom = min(h, top + cropped_h)
 
-            # Crop the image and convert to PIL format
-            image = TF.to_tensor(image)
-            image = image[:, top: bottom, left: right]
-            image = TF.to_pil_image(image)
 
             updated_boxes = torch.Tensor(len(boxes), 4)
             # If the center is off screen, set it to empty
@@ -85,6 +83,9 @@ class BBoxRandomCrop(object):
             
             if len(updated_boxes) > 0:
                 success = True
+                image = TF.to_tensor(image)
+                image = image[:, top: bottom, left: right]
+                image = TF.to_pil_image(image)
                 labels = updated_labels
                 boxes = updated_boxes
             else:

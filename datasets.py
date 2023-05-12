@@ -21,12 +21,14 @@ class SerengetiDataset(Dataset):
             self.bboxes[row['image_id']].append(i)
 
         self.annotations_df['bbox'] = self.annotations_df['bbox'].apply(literal_eval)
+        
+        print('Initialized dataset.')
 
     def __getitem__(self, i):
         image_info = self.images_df.iloc[i]
 
         path = os.path.join(self.image_folder, image_info['image_path_rel'])
-        image = Image.open(path).convert('RGB')
+        image = Image.open(path)
 
         box_idxs = self.bboxes[image_info['id']]
         boxes = torch.FloatTensor([self.annotations_df.iloc[i]['bbox'] for i in box_idxs])
@@ -59,7 +61,7 @@ class SerengetiDataset(Dataset):
         return images, boxes, labels  # tensor (N, 3, x, y), 3 lists of N tensors each
 
 def get_dataset_params():
-    image_folder = '../PRBX/snapshot-serengeti'
+    image_folder = '../snapshot-serengeti'
     images_df = pd.read_csv('./snapshot-serengeti/bbox_images_non_empty_downloaded.csv')
     annotations_df = pd.read_csv('./snapshot-serengeti/bbox_annotations_downloaded.csv')
     classes_df = pd.read_csv('./snapshot-serengeti/classes.csv')

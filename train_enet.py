@@ -36,8 +36,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 checkpoint = None  # path to model checkpoint, None if none
 batch_size = 32  # batch size
 iterations = 120_000  # number of iterations to train
-workers = 16 # number of workers for loading data in the DataLoader
-print_freq = 200  # print training status every __ batches
+workers = 1 # number of workers for loading data in the DataLoader
+print_freq = 1  # print training status every __ batches
 lr = 1e-3  # learning rate
 decay_lr_at = [80_000, 100_000]  # decay learning rate after these many iterations
 decay_lr_to = 0.1  # decay learning rate to this fraction of the existing learning rate
@@ -88,7 +88,7 @@ def main():
                                                collate_fn=train_dataset.dataset.collate_fn, num_workers=workers,
                                                pin_memory=True)  # note that we're passing the collate function here
     
-    print(f'Loaded dataset.')
+    print(f'Initialized data loader.')
 
 
     # Calculate total number of epochs to train and the epochs to decay learning rate at (i.e. convert iterations to epochs)
