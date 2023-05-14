@@ -4,20 +4,30 @@ import os
 import pandas as pd
 from PIL import Image
 from ast import literal_eval
+from collections import Counter
+import ast
 
 class SerengetiDataset(Dataset):
     """
     A PyTorch Dataset class to be used in a PyTorch DataLoader to create batches.
     """
-    def __init__(self, image_folder, images_df, annotations_df, classes_df, transform=None):
+    def __init__(self, image_folder, images_df, annotations_df, classes_df, split=None, night_images=set(), transform=None):
         self.image_folder = image_folder
         self.images_df = images_df
         self.annotations_df = annotations_df
         self.classes_df = classes_df
         self.transform = transform
+        
+        if self.split:
+            self.split = split.upper()
+            assert self.split in {'DAY', 'NIGHT'}
+            if self.split == 'Night':
+                self.images_df = self.images_df[self.images_df['image_path_rel'] in self.night_images]
+            else:
+                self.images_df = self.images_df[self.images_df['image_path_rel'] not in self.night_images]
 
-        self.bboxes = {row['id']: [] for _, row in self.images_df.iterrows()} # 4909 images have no bounding boxes, filter these in df 
-        for i, row in self.annotations_df.iterrows():                         # images have been filtered, now boxes need to be filtered?
+        self.bboxes = {row['id']: [] for _, row in self.images_df.iterrows()}
+        for i, row in self.annotations_df.iterrows():
             self.bboxes[row['image_id']].append(i)
 
         self.annotations_df['bbox'] = self.annotations_df['bbox'].apply(literal_eval)
@@ -60,15 +70,45 @@ class SerengetiDataset(Dataset):
 
         return images, boxes, labels  # tensor (N, 3, x, y), 3 lists of N tensors each
 
+
+class InMemoryDataset(SerengetiDataset):
+    def __init__(self, *args, **kwargs):
+        super(InMemoryDataset, self).__init__(*args, **kwargs)
+        
+        self.images = []
+        for i, row in tqdm(self.images_df.iterrows(), total=len(self.images_df)):
+            path = os.path.join(self.image_folder, row['image_path_rel'])
+            with Image.open(path) as img:
+                self.images.append(img.convert('RGB'))
+
+    def __getitem__(self, i):
+        image = self.images[i]
+       
+        box_idxs = self.bboxes[image_info['id']]
+        boxes = torch.FloatTensor([self.annotations_df.iloc[i]['bbox'] for i in box_idxs])
+
+        species = image_info['question__species'].lower()
+        label_step = self.classes_df.loc[self.classes_df['name'] == species, 'id']
+        label = self.classes_df.loc[self.classes_df['name'] == species, 'id'].iloc[0] 
+        labels = torch.FloatTensor([label for _ in boxes])
+        
+        if self.transform:
+            image, boxes, labels = self.transform(image, boxes, labels)
+
+        return image, boxes, labels
+
+
 def get_dataset_params():
     image_folder = '../snapshot-serengeti'
     images_df = pd.read_csv('./snapshot-serengeti/bbox_images_non_empty_downloaded.csv')
     annotations_df = pd.read_csv('./snapshot-serengeti/bbox_annotations_downloaded.csv')
     classes_df = pd.read_csv('./snapshot-serengeti/classes.csv')
+    with open('./snapshot-serengeti/grayscale_images.txt', 'r') as f:
+        night_images = ast.literal_eval(f.read())
 
-    return image_folder, images_df, annotations_df, classes_df
+    return image_folder, images_df, annotations_df, classes_df, night_images
 
-from collections import Counter
+
 def main():
     dataset = SerengetiBBoxDataset(*get_dataset_params())
     print('Serengeti Dataset')
@@ -77,8 +117,15 @@ def main():
     c = Counter([len(boxes) for boxes in dataset.bboxes.values()])
     print(f'boxes_per_img: {c}')
 
+
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
 
 # Reference Dataset
 '''
