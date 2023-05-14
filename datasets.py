@@ -11,7 +11,7 @@ class SerengetiDataset(Dataset):
     """
     A PyTorch Dataset class to be used in a PyTorch DataLoader to create batches.
     """
-    def __init__(self, image_folder, images_df, annotations_df, classes_df, split=None, night_images=set(), transform=None):
+    def __init__(self, image_folder, images_df, annotations_df, classes_df, night_images, split=None, transform=None):
         self.image_folder = image_folder
         self.images_df = images_df
         self.annotations_df = annotations_df
