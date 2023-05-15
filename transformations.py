@@ -1,9 +1,12 @@
 import torch
 import torchvision.transforms.functional as TF
 import torchvision.transforms.v2 as v2
+from torchvision.transforms import ToPILImage, ToTensor
+import torch.nn.functional as F
 import random
 import numpy as np
 from copy import copy
+from utils import find_jaccard_overlap
 
 class BBoxToFractional(object):
     def __call__(self, sample):
@@ -33,73 +36,62 @@ class BBoxRandomCrop(object):
         self.retry = retry
 
     def __call__(self, sample):
-        success = False
-        attempts = 0
+        '''
+        image: a tensor (3 x h x w)
+        boxes: a tensor (n x 4) in fractional form
+        '''
+        max_trials = 50
         image, boxes, labels = copy(sample)
+        original_h, original_w = image.size(1), image.size(2)
 
-        while not success and attempts < self.retry:
-            # Randomly determine the scale and ratio of the crop
-            scale = random.uniform(self.scale[0], self.scale[1])
-            ratio = random.uniform(self.ratio[0], self.ratio[1])
+        while True:
+            min_overlap = random.choice([0., .1, .3, .5, .7, .9, None])
 
-            # Get the height and width of the input image
-            h, w = image.height, image.width
+            if min_overlap is None:
+                return image, boxes, labels
 
-            # Calculate the maximum crop dimensions
-            cropped_h_max = h
-            cropped_w_max = w
-            if ratio > 0:
-                cropped_w_max = int(cropped_h_max / ratio)
-            if cropped_w_max > w:
-                cropped_w_max = w
-                cropped_h_max = int(cropped_w_max * ratio)
+            for _ in range(max_trials):
+                min_scale = self.scale[0]
+                scale_h = random.uniform(min_scale, 1)
+                scale_w = random.uniform(min_scale, 1)
+                new_h = int(scale_h * original_h)
+                new_w = int(scale_w * original_w)
 
-            # Calculate the actual crop dimensions based on the scale
-            area_ratio = np.sqrt(scale)
-            cropped_h = int(cropped_h_max * area_ratio)
-            cropped_w = int(cropped_w_max * area_ratio)
+                # Aspect ratio has to be in [0.5, 2]
+                aspect_ratio = new_h / new_w
+                if not self.ratio[0] < aspect_ratio < self.ratio[1]:
+                    continue
 
-            # Randomly determine the top-left coordinates of the crop
-            top = np.random.randint(0, h - cropped_h) if h > cropped_h else 0
-            left = np.random.randint(0, w - cropped_w) if w > cropped_w else 0
+                left = random.randint(0, original_w - new_w)
+                right = left + new_w
+                top = random.randint(0, original_h - new_h)
+                bottom = top + new_h
+                crop = torch.FloatTensor([left, top, right, bottom])
 
-            # Calculate the bottom-right coordinates of the crop
-            right = min(w, left + cropped_w)
-            bottom = min(h, top + cropped_h)
+                overlap = find_jaccard_overlap(crop.unsqueeze(0), boxes).squeeze(0)
+                if overlap.max().item() < min_overlap:
+                    continue
+                
+                new_image = image[:, top:bottom, left:right]
 
+                bb_centers = (boxes[:, :2] + boxes[:, 2:])  # (n_objects, 2)
 
-            updated_boxes = torch.Tensor(len(boxes), 4)
-            # If the center is off screen, set it to empty
-            for i, box in enumerate(boxes):
-                updated_boxes[i] = self.crop_bbox(box, (top, left))
+                # Find bounding boxes whose centers are in the crop
+                centers_in_crop = (bb_centers[:, 0] > left) * (bb_centers[:, 0] < right) * (bb_centers[:, 1] > top) * (
+                        bb_centers[:, 1] < bottom)  # (n_objects), a Torch uInt8/Byte tensor, can be used as a boolean index
 
-            updated_labels = labels
-            for i, (x,y,_,_) in enumerate(boxes):
-                if x <= 0 or y <= 0 or x >= cropped_w or y >= cropped_h:
-                    updated_labels[i] = 0
+                # If not a single bounding box has its center in the crop, try again
+                if not centers_in_crop.any():
+                    continue
 
-            updated_boxes = updated_boxes[updated_labels != 0]
-            updated_labels = updated_labels[updated_labels != 0]
-            
-            if len(updated_boxes) > 0:
-                success = True
-                image = TF.to_tensor(image)
-                image = image[:, top: bottom, left: right]
-                image = TF.to_pil_image(image)
-                labels = updated_labels
-                boxes = updated_boxes
-            else:
-                image, boxes, labels = copy(sample)
-                attempts += 1
+                new_boxes = boxes[centers_in_crop, :]
+                new_labels = labels[centers_in_crop]
 
-        return image, boxes, labels
-    
-    def crop_bbox(self, bbox, crop):
-        top, left = crop
-        x, y, w, h = copy(bbox)
-        x = bbox[0] - left
-        y = bbox[1] - top
-        return torch.Tensor([x,y,w,h])
+                new_boxes[:, :2] -= crop[:2]
+                new_boxes[:, 2:] = torch.min(new_boxes[:, 2:], abs(crop[2:] - new_boxes[:, :2]))
+                # new_boxes[:, 2:] -= crop[:2] #Check if this is needed
+
+                return new_image, new_boxes, new_labels
 
 class BBoxRandomHorizontalFlip(object):
     def __init__(self, p=0.5):
@@ -107,11 +99,18 @@ class BBoxRandomHorizontalFlip(object):
         self.p = p
 
     def __call__(self, sample):
+        '''
+        sample: image, boxes, labels
+        image:  tensor (3, h, w)
+        boxes:  tensor (4, n)
+        labels: tensor (n)
+        output: tensor, tensor, tensor
+        '''
         image, bboxes, labels = sample
         flip = random.random() <= self.p
         if flip:
             image = TF.hflip(image)
-            bboxes = [self.bbox_hflip(image.width, bbox) for bbox in bboxes]
+            bboxes = [self.bbox_hflip(image.size(2), bbox) for bbox in bboxes]
             bboxes = torch.stack(bboxes)
         return image, bboxes, labels
 
@@ -130,15 +129,18 @@ class BBoxResize(object):
             self.output_size = output_size
 
     def __call__(self, sample):
+        '''
+        sample: image, boxes, labels
+        image:  tensor (3, h, w)
+        boxes:  tensor (4, n)
+        labels: tensor (n)
+        output: PIL Image, tensor, tensor
+        '''
         image, bboxes, labels = sample
-        h, w = image.height, image.width
-        new_h, new_w = self.output_size
-        image = v2.Resize((new_h, new_w))(image)
-        for i, bbox in enumerate(bboxes):
-            x_scale = new_w / w
-            y_scale = new_h / h
-            bboxes[i][0] *= x_scale
-            bboxes[i][1] *= y_scale
-            bboxes[i][2] *= x_scale
-            bboxes[i][3] *= y_scale
+        h, w = image.size(1), image.size(2)
+        resized_image = F.interpolate(image.unsqueeze(0), size=self.output_size, mode='bilinear', align_corners=False).squeeze(0)
+        x_scale = self.output_size[0] / w
+        y_scale = self.output_size[1] / h
+        scales = torch.FloatTensor([x_scale, y_scale, x_scale, y_scale]).unsqueeze(0)
+        bboxes = bboxes * scales
         return image, bboxes, labels
