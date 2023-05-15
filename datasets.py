@@ -17,22 +17,24 @@ class SerengetiDataset(Dataset):
         self.annotations_df = annotations_df
         self.classes_df = classes_df
         self.transform = transform
-        
+        self.night_images = night_images
+        self.split = split
         if self.split:
-            self.split = split.upper()
+            self.split = self.split.upper()
             assert self.split in {'DAY', 'NIGHT'}
-            if self.split == 'Night':
-                self.images_df = self.images_df[self.images_df['image_path_rel'] in self.night_images]
-            else:
-                self.images_df = self.images_df[self.images_df['image_path_rel'] not in self.night_images]
+            if self.split == 'NIGHT':
+                self.images_df = self.images_df[self.images_df['image_path_rel'].isin(self.night_images)]
+            elif self.split == 'DAY':
+                self.images_df = self.images_df[~self.images_df['image_path_rel'].isin(self.night_images)]
 
         self.bboxes = {row['id']: [] for _, row in self.images_df.iterrows()}
         for i, row in self.annotations_df.iterrows():
-            self.bboxes[row['image_id']].append(i)
+            if row['image_id'] in self.bboxes:
+                self.bboxes[row['image_id']].append(i)
 
         self.annotations_df['bbox'] = self.annotations_df['bbox'].apply(literal_eval)
         
-        print('Initialized dataset.')
+        print(f'Initialized dataset [{self.split} split].')
 
     def __getitem__(self, i):
         image_info = self.images_df.iloc[i]
@@ -45,7 +47,7 @@ class SerengetiDataset(Dataset):
 
         species = image_info['question__species'].lower()
         label_step = self.classes_df.loc[self.classes_df['name'] == species, 'id']
-        label = self.classes_df.loc[self.classes_df['name'] == species, 'id'].iloc[0] #####
+        label = self.classes_df.loc[self.classes_df['name'] == species, 'id'].iloc[0]
         labels = torch.FloatTensor([label for _ in boxes])
         
         if self.transform:
@@ -104,7 +106,7 @@ def get_dataset_params():
     annotations_df = pd.read_csv('./snapshot-serengeti/bbox_annotations_downloaded.csv')
     classes_df = pd.read_csv('./snapshot-serengeti/classes.csv')
     with open('./snapshot-serengeti/grayscale_images.txt', 'r') as f:
-        night_images = ast.literal_eval(f.read())
+        night_images = set(ast.literal_eval(f.read()))
 
     return image_folder, images_df, annotations_df, classes_df, night_images
 
