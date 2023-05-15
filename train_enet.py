@@ -9,7 +9,7 @@ import torchvision.transforms.v2 as v2
 from torchvision import disable_beta_transforms_warning
 from models.EfficientNetSSD300 import EfficientNetSSD300, MultiBoxLoss
 from datasets import SerengetiDataset, get_dataset_params
-from transformations import BBoxRandomCrop, BBoxRandomHorizontalFlip, BBoxResize, BBoxToFractional, TensorResize
+from transformations import *
 from utils import *
 
 # Disable torchvision warnings
@@ -176,19 +176,9 @@ def get_train_val_datasets(split=None):
     train_split = 0.7
     n_train = int(len(dataset) * train_split)
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, (n_train, len(dataset)-n_train),)
-    
-    train_transform = v2.Compose([
-        v2.Compose([v2.ToImageTensor(), v2.ConvertImageDtype()]),
-        BBoxToFractional(),
-        BBoxRandomHorizontalFlip(),
-        BBoxRandomCrop((0.7,1.0), (0.9,1.1)),
-        BBoxResize(300),
-        v2.ColorJitter(brightness=0.1, contrast=0.05),
-        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
 
     train_dataset.dataset = copy(dataset)
-    train_dataset.dataset.transform = train_transform
+    train_dataset.dataset.transform = train_transform()
 
     return train_dataset, val_dataset
 
