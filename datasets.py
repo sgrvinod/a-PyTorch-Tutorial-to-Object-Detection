@@ -1,11 +1,17 @@
 import torch
 from torch.utils.data import Dataset
+from torchvision.transforms import ToPILImage
+from transformations import BBoxToBoundary
 import os
 import pandas as pd
 from PIL import Image
 from ast import literal_eval
 from collections import Counter
 import ast
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import numpy as np
+import random
 
 class SerengetiDataset(Dataset):
     """
@@ -90,31 +96,24 @@ class SerengetiDataset(Dataset):
         
         return class_frequencies
 
-class InMemoryDataset(SerengetiDataset):
-    def __init__(self, *args, **kwargs):
-        super(InMemoryDataset, self).__init__(*args, **kwargs)
+def show_sample(sample, fractional=False):
+    if fractional:
+        sample = BBoxToBoundary()(sample)
+    image, bboxes, labels = sample
+
+    fig, ax = plt.subplots(1)
+    ax.imshow(image)
+    plt.title(labels)
+    for bbox in bboxes:
+        #bottom left, width, height
+        w, h = bbox[2], bbox[3]
+        x = bbox[0] 
+        y = bbox[1]
         
-        self.images = []
-        for i, row in tqdm(self.images_df.iterrows(), total=len(self.images_df)):
-            path = os.path.join(self.image_folder, row['image_path_rel'])
-            with Image.open(path) as img:
-                self.images.append(img.convert('RGB'))
 
-    def __getitem__(self, i):
-        image = self.images[i]
-       
-        box_idxs = self.bboxes[image_info['id']]
-        boxes = torch.FloatTensor([self.annotations_df.iloc[i]['bbox'] for i in box_idxs])
-
-        species = image_info['question__species'].lower()
-        label_step = self.classes_df.loc[self.classes_df['name'] == species, 'id']
-        label = self.classes_df.loc[self.classes_df['name'] == species, 'id'].iloc[0] 
-        labels = torch.FloatTensor([label for _ in boxes])
-        
-        if self.transform:
-            image, boxes, labels = self.transform(image, boxes, labels)
-
-        return image, boxes, labels
+        rect = patches.Rectangle((x, y), w, h, linewidth=3, edgecolor='black', facecolor='none')
+        ax.add_patch(rect)
+    plt.show()
 
 
 def get_dataset_params():
