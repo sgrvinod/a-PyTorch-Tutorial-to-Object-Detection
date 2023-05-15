@@ -72,6 +72,23 @@ class SerengetiDataset(Dataset):
 
         return images, boxes, labels  # tensor (N, 3, x, y), 3 lists of N tensors each
 
+    def get_classes(self):
+        classes_present = set()
+        for i, row in self.images_df.iterrows():
+            species = row['question__species'].lower()
+            classes_present.add(species)
+    
+        filtered_classes = self.classes_df[self.classes_df['name'].isin(classes_present)]
+        return (filtered_classes)
+
+    def get_class_frequencies(self):
+        class_frequencies = {row['name']: 0 for i, row in self.get_classes().iterrows()}
+        for i, row in self.images_df.iterrows():
+            species = row['question__species'].lower()
+            box_idxs = self.bboxes[row['id']]
+            class_frequencies[species] += len(box_idxs)
+        
+        return class_frequencies
 
 class InMemoryDataset(SerengetiDataset):
     def __init__(self, *args, **kwargs):
@@ -112,12 +129,15 @@ def get_dataset_params():
 
 
 def main():
-    dataset = SerengetiBBoxDataset(*get_dataset_params())
-    print('Serengeti Dataset')
-    print(f'num_items: {len(dataset)}')
-    print(f'item_0: {dataset[0]}')
-    c = Counter([len(boxes) for boxes in dataset.bboxes.values()])
-    print(f'boxes_per_img: {c}')
+    # dataset = SerengetiDataset(*get_dataset_params())
+    day_dataset = SerengetiDataset(*get_dataset_params(), split='DAY')
+    night_dataset = SerengetiDataset(*get_dataset_params(), split='NIGHT')
+    day_freqs = day_dataset.get_class_frequencies()
+    night_freqs = night_dataset.get_class_frequencies()
+    total_freqs = {k: (v, night_freqs[k]) for k, v in day_freqs.items() if k in night_freqs.keys()}
+    viable_freqs = {k: v for k, v in total_freqs if min(v) > 500}
+    print(total_freqs)
+
 
 
 if __name__ == '__main__':
