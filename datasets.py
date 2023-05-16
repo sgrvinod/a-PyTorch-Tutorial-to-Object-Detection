@@ -116,9 +116,22 @@ def show_sample(sample, fractional=False):
     plt.show()
 
 
-def get_dataset_params():
-    image_folder = '../snapshot-serengeti'
-    images_df = pd.read_csv('./snapshot-serengeti/bbox_images_non_empty_downloaded.csv')
+def get_dataset_params(use_tmp=False, top_species=False):
+    '''
+    Utility function holding parameters used to initialize a dataset
+    :param use_tmp: set to true if image data is being stored in the GPU /tmp store
+    :param top_species: set to true to only use images with a sample of the 5 most common day and night species
+    '''
+    if use_tmp:
+        image_folder = '~/../../../tmp/snapshot-serengeti/'
+    else:
+        image_folder = '~/scratch/snapshot-serengeti/'
+
+    if top_species:
+        images_df = pd.read_csv('./snapshot-serengeti/bbox_images_top_species.csv')
+    else:
+        images_df = pd.read_csv('./snapshot-serengeti/bbox_images_non_empty_downloaded.csv')
+    
     annotations_df = pd.read_csv('./snapshot-serengeti/bbox_annotations_downloaded.csv')
     classes_df = pd.read_csv('./snapshot-serengeti/classes.csv')
     with open('./snapshot-serengeti/grayscale_images.txt', 'r') as f:
