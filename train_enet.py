@@ -78,7 +78,7 @@ def main():
     print(f'\nLoaded model to {device}, {workers} workers.')
 
     # Custom dataloaders
-    train_dataset, _ = get_train_val_datasets('NIGHT')
+    train_dataset, _ = get_train_val_datasets(use_tmp=True, top_species=True)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
                                                collate_fn=train_dataset.dataset.collate_fn, num_workers=workers,
                                                pin_memory=True)  # note that we're passing the collate function here
@@ -105,9 +105,7 @@ def main():
 
         # Save checkpoint
         # save_checkpoint(epoch, model, optimizer) REPLACE THIS
-        state = {'epoch': epoch, 'model': model, 'optimizer': optimizer}
-        filename = 'checkpoint_efficientnet_ssd300_2.pth.tar'
-        torch.save(state, filename)
+        save_checkpoint(epoch, model, optimizer)
 
 def train(train_loader, model, criterion, optimizer, epoch):
     """
@@ -168,9 +166,16 @@ def train(train_loader, model, criterion, optimizer, epoch):
                                                                   data_time=data_time, loss=losses))
     del predicted_locs, predicted_scores, images, boxes, labels  # free some memory since their histories may be stored
 
-def get_train_val_datasets(split=None):
+def get_train_val_datasets(split=None, use_tmp=False, top_species=False):
+    '''
+    :param split: string {'day', 'night'}, controls which image types are returned
+    :param use_tmp: boolean, set to true if dataset images are stored in /tmp gpu memory
+    :param top_species: boolean, set to true to only include {elephant, dikdik, lion_female, reedbuck, hippopotamous}
+    :returns: train and validation datasets, 70:30 split
+    '''
+
     disable_beta_transforms_warning()
-    params = get_dataset_params()
+    params = get_dataset_params(use_tmp=use_tmp, top_species=top_species)
     dataset = SerengetiDataset(*params, split=split)
 
     train_split = 0.7
