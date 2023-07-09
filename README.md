@@ -818,6 +818,12 @@ The paper recommends training for 80000 iterations at the initial learning rate.
 
 On a TitanX (Pascal), each epoch of training required about 6 minutes.
 
+I should note here that two unintended differences from the paper were brought to my attention by readers of this tutorial:
+
+- My priors that overshoot the edges of the image are not being clipped, as pointed out in issue [#94](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/issues/94) by _@AakiraOtok_. This does not appear to have a negative effect on performance, however, as discussed in that issue and also verified in issue [#95](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/issues/95) by the same reader. It is even possible that there is a slight improvement in performance, but this may be too small to be conclusive.
+
+- I mistakenly used L1 loss instead of *smooth* L1 loss as the localization loss, as pointed out in issue [#60](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/issues/60) by _jonathan016_. This also appears to have no negative effect on performance as pointed out in that issue, but _smooth_ L1 loss may offer better training stability with larger batch sizes as mentioned in [this comment](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/issues/94#issuecomment-1590217018). 
+
 ### Model checkpoint
 
 You can download this pretrained model [here](https://drive.google.com/open?id=1bvJfF6r_zYl2xZEpYXxgb7jLQHFZ01Qe).

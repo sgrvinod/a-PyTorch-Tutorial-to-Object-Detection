@@ -419,7 +419,7 @@ class SSD300(nn.Module):
                             prior_boxes.append([cx, cy, additional_scale, additional_scale])
 
         prior_boxes = torch.FloatTensor(prior_boxes).to(device)  # (8732, 4)
-        prior_boxes.clamp_(0, 1)  # (8732, 4)
+        prior_boxes.clamp_(0, 1)  # (8732, 4); this line has no effect; see Remarks section in tutorial
 
         return prior_boxes
 
@@ -546,7 +546,7 @@ class MultiBoxLoss(nn.Module):
         self.neg_pos_ratio = neg_pos_ratio
         self.alpha = alpha
 
-        self.smooth_l1 = nn.L1Loss()
+        self.smooth_l1 = nn.L1Loss()  # *smooth* L1 loss in the paper; see Remarks section in the tutorial
         self.cross_entropy = nn.CrossEntropyLoss(reduce=False)
 
     def forward(self, predicted_locs, predicted_scores, boxes, labels):
