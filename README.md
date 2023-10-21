@@ -453,7 +453,7 @@ Phew. Let's get to work.
 
 Remember, the nub of any supervised learning algorithm is that **we need to be able to match predictions to their ground truths**. This is tricky since object detection is more open-ended than the average learning task.
 
-For the model to learn _anything_, we'd need to structure the problem in a way that allows for comparisions between our predictions and the objects actually present in the image.
+For the model to learn _anything_, we'd need to structure the problem in a way that allows for comparisons between our predictions and the objects actually present in the image.
 
 Priors enable us to do exactly this!
 
@@ -619,7 +619,7 @@ Each object is represented by –
 
 #### Download
 
-Specfically, you will need to download the following VOC datasets –
+Specifically, you will need to download the following VOC datasets –
 
 - [2007 _trainval_](http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar) (460MB)
 
