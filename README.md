@@ -12,7 +12,7 @@ I'm using `PyTorch 0.4` in `Python 3.6`.
 
 ---
 
-**27 Jan 2020**: Working code for two new tutorials has been added — [Super-Resolution](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Super-Resolution) and [Machine Translation](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Machine-Translation)
+**04 Nov 2023**: A Chinese translation of this tutorial has been kindly made available by [@zigerZZZ](https://github.com/zigerZZZ) – see [README_zh.md](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/README_zh.md).
 
 ---
 
