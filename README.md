@@ -12,7 +12,7 @@ I'm using `PyTorch 0.4` in `Python 3.6`.
 
 ---
 
-**04 Nov 2023**: A Chinese translation of this tutorial has been kindly made available by [@zigerZZZ](https://github.com/zigerZZZ) – see [README_zh.md](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/README_zh.md).
+**04 Nov 2023**: 中文翻译 – a Chinese translation of this tutorial has been kindly made available by [@zigerZZZ](https://github.com/zigerZZZ) – see [README_zh.md](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Object-Detection/blob/master/README_zh.md).
 
 ---
 
