@@ -394,12 +394,14 @@ class SSD300(nn.Module):
                          'conv9_2': [1., 2., 3., 0.5, .333],
                          'conv10_2': [1., 2., 0.5],
                          'conv11_2': [1., 2., 0.5]}
-
+        
+        # fmaps = ['conv4_3', 'conv7', 'conv8_2', 'conv9_2' 'conv10_2', 'conv11_2']
         fmaps = list(fmap_dims.keys())
 
         prior_boxes = []
 
         for k, fmap in enumerate(fmaps):
+            # fmap_dims[fmap] = [38, 19, 10, 5, 3, 1]
             for i in range(fmap_dims[fmap]):
                 for j in range(fmap_dims[fmap]):
                     cx = (j + 0.5) / fmap_dims[fmap]
