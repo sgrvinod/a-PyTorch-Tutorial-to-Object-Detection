@@ -395,7 +395,7 @@ class SSD300(nn.Module):
                          'conv10_2': [1., 2., 0.5],
                          'conv11_2': [1., 2., 0.5]}
 
-        fmaps = list(fmap_dims.keys())
+        fmaps = sorted(list(fmap_dims.keys()))
 
         prior_boxes = []
 
